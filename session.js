@@ -69,6 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessionActive = document.getElementById('session-active-state');
             if(waiting) waiting.style.display = 'none';
             if(sessionActive) sessionActive.style.display = 'block';
+            // show journee tab by default
+            selectTab('tab-journee');
         }catch(e){ /* ignore if elements missing */ }
     }
 
@@ -84,7 +86,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessionActive = document.getElementById('session-active-state');
             if(waiting) waiting.style.display = 'block';
             if(sessionActive) sessionActive.style.display = 'none';
+            // default tab
+            selectTab('tab-journee');
         }catch(e){ /* ignore if elements missing */ }
+    }
+
+    // Select tab helper (works even if stats.js not yet loaded)
+    function selectTab(tabName){
+        try{
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            const el = document.getElementById(tabName);
+            if(el) el.classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+            if(btn) btn.classList.add('active');
+        }catch(e){}
     }
     
     // --- Gestionnaires d'événements ---
@@ -141,6 +157,14 @@ document.addEventListener('DOMContentLoaded', () => {
             startDayBtn.textContent = 'Démarrer ma journée';
         }
     });
+
+    // boutons rapides depuis waiting-state
+    try{
+        const myRides = document.getElementById('my-rides-btn');
+        const statsBtn = document.getElementById('stats-btn');
+        if(myRides) myRides.addEventListener('click', () => selectTab('tab-courses'));
+        if(statsBtn) statsBtn.addEventListener('click', () => selectTab('tab-stats'));
+    }catch(e){}
 
     // Clic sur "Terminer ma journée"
     endDayBtn.addEventListener('click', async () => {
