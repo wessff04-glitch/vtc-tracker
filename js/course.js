@@ -74,13 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // create a car divIcon (SVG) so we can rotate the SVG independently
             const carIcon = L.divIcon({
                 className: 'car-icon-wrapper',
-                html: `<div class="car-icon"><svg class="car-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="${'#ff6b35'}"><path d="M5 11c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h.5c.28 0 .5.22.5.5V18c0 .55.45 1 1 1h.5c.55 0 1-.45 1-1v-.5h6V18c0 .55.45 1 1 1h.5c.55 0 1-.45 1-1v-.5c0-.28.22-.5.5-.5H20c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1H5zm0-2h14l-1.5-3h-11L5 9z"/></svg></div>`,
+                html: `<div class="car-icon"><svg class="car-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#00A86B"><path d="M5 11c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h.5c.28 0 .5.22.5.5V18c0 .55.45 1 1 1h.5c.55 0 1-.45 1-1v-.5h6V18c0 .55.45 1 1 1h.5c.55 0 1-.45 1-1v-.5c0-.28.22-.5.5-.5H20c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1H5zm0-2h14l-1.5-3h-11L5 9z"/></svg></div>`,
                 iconSize: [40,40],
                 iconAnchor: [20,20]
             });
-
             marker = L.marker([center.lat, center.lng], { icon: carIcon, interactive: false }).addTo(map);
-            polyline = L.polyline([[center.lat, center.lng]], {color: '#0b6efd'}).addTo(map);
+            polyline = L.polyline([[center.lat, center.lng]], {color: '#00A86B', weight:4}).addTo(map);
+            // ensure correct sizing when container becomes visible
+            setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 200);
         } else {
             map.setView([center.lat, center.lng], 16);
             marker.setLatLng([center.lat, center.lng]);
@@ -220,6 +221,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Remplacer l'écouteur pour l'arrêt
             startBtn.removeEventListener('click', handleStartClick);
             startBtn.addEventListener('click', handleStopClick);
+
+            // wire explicit end-course button (visible in UI)
+            try{
+                const endBtn = document.getElementById('end-course-btn');
+                if(endBtn){
+                    endBtn.removeEventListener('click', handleStopClick);
+                    endBtn.addEventListener('click', handleStopClick);
+                }
+            }catch(e){}
 
         }, error => {
             console.error('getCurrentPosition error', error);
