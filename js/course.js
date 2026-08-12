@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let map = null;
     let marker = null;
     let polyline = null;
+    let animating = false;
 
     // Récupère la session active pour l'utilisateur connecté
     async function getActiveSession(userId){
@@ -60,8 +61,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 attribution: '© OpenStreetMap'
             }).addTo(map);
 
-            marker = L.marker([center.lat, center.lng]).addTo(map);
-            polyline = L.polyline([[center.lat, center.lng]], {color: 'blue'}).addTo(map);
+            // create a car divIcon (SVG) so we can rotate the SVG independently
+            const carIcon = L.divIcon({
+                className: 'car-icon-wrapper',
+                html: `<div class="car-icon"><svg class="car-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="${'#ff6b35'}"><path d="M5 11c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h.5c.28 0 .5.22.5.5V18c0 .55.45 1 1 1h.5c.55 0 1-.45 1-1v-.5h6V18c0 .55.45 1 1 1h.5c.55 0 1-.45 1-1v-.5c0-.28.22-.5.5-.5H20c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1H5zm0-2h14l-1.5-3h-11L5 9z"/></svg></div>`,
+                iconSize: [40,40],
+                iconAnchor: [20,20]
+            });
+
+            marker = L.marker([center.lat, center.lng], { icon: carIcon, interactive: false }).addTo(map);
+            polyline = L.polyline([[center.lat, center.lng]], {color: '#0b6efd'}).addTo(map);
         } else {
             map.setView([center.lat, center.lng], 16);
             marker.setLatLng([center.lat, center.lng]);
@@ -69,12 +78,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // compute bearing between two lat/lng points in degrees
+    function bearingBetween(start, end){
+        const toRad = d => d * Math.PI / 180;
+        const toDeg = r => r * 180 / Math.PI;
+        const lat1 = toRad(start.lat);
+        const lat2 = toRad(end.lat);
+        const dLon = toRad(end.lng - start.lng);
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+        const brng = toDeg(Math.atan2(y, x));
+        return (brng + 360) % 360; // 0..360
+    }
+
+    // animate marker from start to end over duration(ms)
+    function animateMarkerTo(startLatLng, endLatLng, duration = 1000){
+        if(!marker || !map) return Promise.resolve();
+        return new Promise(resolve => {
+            const start = { lat: startLatLng.lat, lng: startLatLng.lng };
+            const end = { lat: endLatLng.lat, lng: endLatLng.lng };
+            const startTime = performance.now();
+            animating = true;
+
+            function step(now){
+                const t = Math.min(1, (now - startTime) / duration);
+                const lat = start.lat + (end.lat - start.lat) * t;
+                const lng = start.lng + (end.lng - start.lng) * t;
+                marker.setLatLng([lat, lng]);
+                if(t < 1){
+                    requestAnimationFrame(step);
+                } else {
+                    animating = false;
+                    resolve();
+                }
+            }
+            requestAnimationFrame(step);
+        });
+    }
+
     function addPointToTrajectory(lat, lng, timestamp){
         const p = { lat: lat, lng: lng, timestamp: timestamp };
         trajet_gps.push(p);
-        if(marker) marker.setLatLng([lat, lng]);
         if(polyline) polyline.addLatLng([lat, lng]);
         if(map) map.panTo([lat, lng]);
+
+        // animate marker smoothly from previous pos to new one
+        if(marker){
+            const prev = marker.getLatLng();
+            const next = L.latLng(lat, lng);
+            // set rotation based on bearing
+            try{
+                const brng = bearingBetween({lat: prev.lat, lng: prev.lng}, {lat: next.lat, lng: next.lng});
+                const el = marker.getElement && marker.getElement();
+                if(el){
+                    const svg = el.querySelector('.car-svg');
+                    if(svg) svg.style.transform = `rotate(${brng}deg)`;
+                }
+            }catch(e){/* ignore */}
+
+            // if already animating, just set target (queue minimal)
+            if(animating){
+                // jump to final (avoid long queue)
+                marker.setLatLng(next);
+            } else {
+                animateMarkerTo(prev, next, 1000).catch(()=>{});
+            }
+        }
     }
 
     function startWatching(){
@@ -144,6 +213,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         heure_arrivee_course = new Date().toISOString();
+
+        // rotate marker to final bearing if possible
+        try{
+            if(trajet_gps.length >= 2 && marker){
+                const a = trajet_gps[trajet_gps.length - 2];
+                const b = trajet_gps[trajet_gps.length - 1];
+                const brng = bearingBetween({lat:a.lat, lng:a.lng}, {lat:b.lat, lng:b.lng});
+                const el = marker.getElement && marker.getElement();
+                if(el){
+                    const svg = el.querySelector('.car-svg');
+                    if(svg) svg.style.transform = `rotate(${brng}deg)`;
+                }
+            }
+        }catch(e){/* ignore */}
 
         // Calcul distance en km
         let distance = 0;
