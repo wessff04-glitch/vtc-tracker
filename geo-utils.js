@@ -1,0 +1,1 @@
+// Fonctions utilitaires pour la géolocalisation (ex: calcul de distance Haversine)

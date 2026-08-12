@@ -1,0 +1,6 @@
+/* Styles spécifiques pour l'interface mobile du chauffeur */
+@media (max-width: 600px) {
+    body {
+        padding: 0;
+    }
+}

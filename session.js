@@ -1,0 +1,1 @@
+// Logique pour démarrer/terminer une session de travail (journée)

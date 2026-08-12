@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Les chauffeurs peuvent lire leurs propres données
+    match /chauffeurs/{userId} {
+      allow read, update: if request.auth.uid == userId;
+    }
+
+    // Pour l'instant, on bloque tout le reste en attendant les règles détaillées
+    match /sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    match /courses/{courseId} {
+      allow read, write: if false;
+    }
+  }
+}

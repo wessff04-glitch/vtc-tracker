@@ -1,0 +1,1 @@
+// Logique pour démarrer/terminer une course et le tracking GPS
