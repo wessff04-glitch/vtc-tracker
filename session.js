@@ -63,6 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStatusEl.textContent = `Journée en cours depuis ${sessionData.heure_debut}`;
         startDayBtn.style.display = 'none';
         endDayBtn.style.display = 'block';
+        // UI states for dashboard-chauffeur
+        try{
+            const waiting = document.getElementById('waiting-state');
+            const sessionActive = document.getElementById('session-active-state');
+            if(waiting) waiting.style.display = 'none';
+            if(sessionActive) sessionActive.style.display = 'block';
+        }catch(e){ /* ignore if elements missing */ }
     }
 
     // Met à jour l'interface pour un état "aucune session"
@@ -71,6 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
         startDayBtn.style.display = 'block';
         endDayBtn.style.display = 'none';
         activeSessionId = null;
+        // UI states for dashboard-chauffeur
+        try{
+            const waiting = document.getElementById('waiting-state');
+            const sessionActive = document.getElementById('session-active-state');
+            if(waiting) waiting.style.display = 'block';
+            if(sessionActive) sessionActive.style.display = 'none';
+        }catch(e){ /* ignore if elements missing */ }
     }
     
     // --- Gestionnaires d'événements ---
