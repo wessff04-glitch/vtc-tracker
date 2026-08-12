@@ -21,6 +21,12 @@
                 <button id="logout-btn" class="btn ghost">Se déconnecter</button>
             </div>
         </header>
+            <!-- Onglets: Journée / Mes courses / Statistiques -->
+            <div class="tabs-container">
+                <button class="tab-btn active" data-tab="tab-journee"><span class="tab-icon">📊</span> Journée</button>
+                <button class="tab-btn" data-tab="tab-courses"><span class="tab-icon">🚗</span> Mes courses</button>
+                <button class="tab-btn" data-tab="tab-stats"><span class="tab-icon">📈</span> Statistiques</button>
+            </div>
 
         <!-- HUD strip fixé en haut pendant une course -->
         <div id="hud-strip" class="hud-strip hidden">
@@ -38,6 +44,7 @@
             </div>
         </div>
 
+        <div id="tab-journee" class="tab-content">
         <!-- Etat: En attente -->
         <section id="waiting-state" class="card mb-16">
             <div class="driver-hero">
@@ -69,7 +76,86 @@
                 <button id="start-course-btn" class="btn">Démarrer une course</button>
                 <button id="end-day-btn" class="btn danger" style="display:none;">Terminer la journée</button>
             </div>
-        </section>
+        </div>
+
+        <div id="tab-courses" class="tab-content hidden">
+            <div class="card mb-16">
+                <div class="courses-header">
+                    <h2>Mes courses</h2>
+                    <select id="courses-filter">
+                        <option value="today">Aujourd'hui</option>
+                        <option value="week">7 derniers jours</option>
+                        <option value="month">Ce mois</option>
+                    </select>
+                </div>
+                <div id="courses-list" class="courses-list"></div>
+            </div>
+        </div>
+
+        <div id="tab-stats" class="tab-content hidden">
+            <div class="card mb-16">
+                <div class="stats-header">
+                    <h2>Statistiques</h2>
+                    <div class="stats-period">
+                        <button class="period-btn active" data-period="day">Jour</button>
+                        <button class="period-btn" data-period="week">Semaine</button>
+                        <button class="period-btn" data-period="month">Mois</button>
+                    </div>
+                </div>
+
+                <div class="stats-kpi-row">
+                    <div class="stats-kpi">
+                        <div class="kpi-label">Gagné</div>
+                        <div class="kpi-value" id="kpi-earned">€0</div>
+                        <div class="kpi-subtext" id="kpi-earned-vs-goal">vs objectif</div>
+                    </div>
+                    <div class="stats-kpi">
+                        <div class="kpi-label">Courses</div>
+                        <div class="kpi-value" id="kpi-courses">0</div>
+                        <div class="kpi-subtext" id="kpi-courses-avg">Moyenne</div>
+                    </div>
+                    <div class="stats-kpi">
+                        <div class="kpi-label">Distance</div>
+                        <div class="kpi-value" id="kpi-distance">0 km</div>
+                        <div class="kpi-subtext" id="kpi-distance-avg">par course</div>
+                    </div>
+                </div>
+
+                <div class="stats-progress-card">
+                    <div class="progress-label">Progression objectif</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progress-bar-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="progress-earned">€0</span> / <span id="progress-goal">€350</span>
+                    </div>
+                </div>
+
+                <div class="stats-chart-card">
+                    <h3>Revenus par jour</h3>
+                    <canvas id="revenue-chart"></canvas>
+                </div>
+
+                <div class="stats-metadata-grid">
+                    <div class="metadata-card">
+                        <span class="metadata-label">Temps total</span>
+                        <span class="metadata-value" id="metadata-time">0h 00min</span>
+                    </div>
+                    <div class="metadata-card">
+                        <span class="metadata-label">Moyenne/course</span>
+                        <span class="metadata-value" id="metadata-avg-price">€0</span>
+                    </div>
+                    <div class="metadata-card">
+                        <span class="metadata-label">€/heure</span>
+                        <span class="metadata-value" id="metadata-per-hour">€0</span>
+                    </div>
+                    <div class="metadata-card">
+                        <span class="metadata-label">€/km</span>
+                        <span class="metadata-value" id="metadata-per-km">€0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Etat: Course en cours -->
         <section id="course-state" class="card mb-16" style="display:none;">
@@ -120,6 +206,8 @@
     <script src="session.js"></script>
     <script src="js/geo-utils.js"></script>
     <script src="js/course.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="js/stats.js"></script>
 
 </body>
 </html>

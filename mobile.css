@@ -59,4 +59,45 @@
 .hud-strip-value { display:block; font-size:1.25rem; font-weight:700; font-family: 'Courier New', monospace }
 .hud-strip.hidden { display:none }
 
+/* Tabs */
+.tabs-container{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid #E8E8E8;background:#F8F9FB;overflow-x:auto}
+.tab-btn{flex:1;min-width:100px;padding:10px 12px;border:none;background:transparent;border-bottom:3px solid transparent;color:#757575;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 200ms;white-space:nowrap}
+.tab-btn.active{color:#00A86B;border-bottom-color:#00A86B}
+.tab-btn:hover{color:#1A1A1A}
+.tab-icon{margin-right:6px}
+.tab-content.hidden{display:none}
+
+/* Courses */
+.courses-list{padding:16px;display:flex;flex-direction:column;gap:12px}
+.course-card{background:white;border:1px solid #E8E8E8;border-radius:12px;padding:16px;cursor:pointer;transition:all 200ms}
+.course-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1);border-color:#00A86B}
+.course-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.course-time{font-weight:700;color:#1A1A1A;font-size:1rem}
+.course-price{font-weight:700;color:#00A86B;font-size:1.1rem}
+.course-card-stats{display:flex;gap:16px;font-size:0.875rem;color:#757575}
+.course-card-stat{display:flex;flex-direction:column}
+.course-card-stat-label{font-size:0.75rem;color:#999;font-weight:500;text-transform:uppercase}
+.course-card-stat-value{font-weight:600;color:#1A1A1A}
+.course-card-action{margin-top:12px;padding-top:12px;border-top:1px solid #E8E8E8}
+.course-card-action button{width:100%;padding:10px;background:#F8F9FB;border:1px solid #E8E8E8;border-radius:8px;color:#00A86B;font-weight:600;cursor:pointer}
+.course-card-action button:active{background:#E8F5F0}
+
+/* Stats cards */
+.stats-kpi-row{display:flex;gap:12px;padding:16px;overflow-x:auto}
+.stats-kpi{flex:1;min-width:120px;background:linear-gradient(135deg,#00A86B 0%,#0FA058 100%);border-radius:14px;padding:16px;color:white;text-align:center;box-shadow:0 4px 16px rgba(0,168,107,0.15)}
+.progress-bar-container{background:#E8E8E8;border-radius:20px;height:24px;overflow:hidden;margin-bottom:8px}
+.progress-bar{background:linear-gradient(90deg,#00A86B 0%,#0FA058 100%);height:100%;width:0%;transition:width 600ms ease-in-out}
+.stats-chart-card{background:white;border:1px solid #E8E8E8;border-radius:14px;padding:16px;margin:16px}
+.stats-metadata-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px}
+.metadata-card{background:white;border:1px solid #E8E8E8;border-radius:12px;padding:14px;text-align:center}
+
+/* Modal route map */
+.route-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;z-index:2000}
+.modal-content{background:white;width:100%;border-radius:20px 20px 0 0;padding:16px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-close{background:none;border:none;font-size:1.5rem;cursor:pointer;color:#757575}
+.route-details{margin-top:16px;padding-top:16px;border-top:1px solid #E8E8E8}
+.detail-row{display:flex;justify-content:space-between;padding:8px 0;font-weight:500}
+.detail-row span:last-child{color:#00A86B;font-weight:700}
+
 
