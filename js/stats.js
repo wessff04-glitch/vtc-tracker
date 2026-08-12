@@ -1,5 +1,7 @@
 // js/stats.js
 let statsChart = null;
+let coursesUnsub = null;
+let statsUnsub = null;
 
 function setupTabs(){
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -16,7 +18,12 @@ function setupTabs(){
     });
 }
 
-async function loadCourses(filter = 'today'){
+function detachCoursesListener(){
+    if(coursesUnsub){ coursesUnsub(); coursesUnsub = null; }
+}
+
+function attachCoursesListener(filter = 'today'){
+    detachCoursesListener();
     const user = firebase.auth().currentUser;
     if(!user) return;
     let query = db.collection('courses').where('chauffeur_id','==',user.uid).orderBy('heure_depart_course','desc');
@@ -28,46 +35,45 @@ async function loadCourses(filter = 'today'){
     else if(filter === 'week') query = query.where('heure_depart_course','>=', startOfWeek.toISOString());
     else if(filter === 'month') query = query.where('heure_depart_course','>=', startOfMonth.toISOString());
 
-    const snapshot = await query.get();
-    const coursesList = document.getElementById('courses-list');
-    if(!coursesList) return;
-    coursesList.innerHTML = '';
-
-    snapshot.forEach(doc => {
-        const course = doc.data();
-        const courseCard = document.createElement('div');
-        courseCard.className = 'course-card';
-        const avg = course.distance && course.distance > 0 ? (course.prix / course.distance).toFixed(2) : '—';
-        courseCard.innerHTML = `
-            <div class="course-card-header">
-                <span class="course-time">${course.heure_depart_course} → ${course.heure_arrivee_course}</span>
-                <span class="course-price">€${course.prix.toFixed(2)}</span>
-            </div>
-            <div class="course-card-stats">
-                <div class="course-card-stat">
-                    <span class="course-card-stat-label">Distance</span>
-                    <span class="course-card-stat-value">${course.distance.toFixed(1)} km</span>
+    coursesUnsub = query.onSnapshot(snapshot => {
+        const coursesList = document.getElementById('courses-list');
+        if(!coursesList) return;
+        coursesList.innerHTML = '';
+        snapshot.forEach(doc => {
+            const course = doc.data();
+            const courseCard = document.createElement('div');
+            courseCard.className = 'course-card';
+            const avg = course.distance && course.distance > 0 ? (course.prix / course.distance).toFixed(2) : '—';
+            courseCard.innerHTML = `
+                <div class="course-card-header">
+                    <span class="course-time">${course.heure_depart_course} → ${course.heure_arrivee_course}</span>
+                    <span class="course-price">€${course.prix.toFixed(2)}</span>
                 </div>
-                <div class="course-card-stat">
-                    <span class="course-card-stat-label">Durée</span>
-                    <span class="course-card-stat-value">${course.duree} min</span>
+                <div class="course-card-stats">
+                    <div class="course-card-stat">
+                        <span class="course-card-stat-label">Distance</span>
+                        <span class="course-card-stat-value">${course.distance.toFixed(1)} km</span>
+                    </div>
+                    <div class="course-card-stat">
+                        <span class="course-card-stat-label">Durée</span>
+                        <span class="course-card-stat-value">${course.duree} min</span>
+                    </div>
+                    <div class="course-card-stat">
+                        <span class="course-card-stat-label">Moyenne</span>
+                        <span class="course-card-stat-value">€${avg}/km</span>
+                    </div>
                 </div>
-                <div class="course-card-stat">
-                    <span class="course-card-stat-label">Moyenne</span>
-                    <span class="course-card-stat-value">€${avg}/km</span>
+                <div class="course-card-action">
+                    <button class="view-route-btn" data-id="${doc.id}">📍 Voir le trajet</button>
                 </div>
-            </div>
-            <div class="course-card-action">
-                <button class="view-route-btn" data-id="${doc.id}">📍 Voir le trajet</button>
-            </div>
-        `;
-        coursesList.appendChild(courseCard);
-    });
-
-    // wire view buttons
-    document.querySelectorAll('.view-route-btn').forEach(b => {
-        b.addEventListener('click', (e) => showCourseMap(e.target.dataset.id));
-    });
+            `;
+            coursesList.appendChild(courseCard);
+        });
+        // wire view buttons
+        document.querySelectorAll('.view-route-btn').forEach(b => {
+            b.addEventListener('click', (e) => showCourseMap(e.target.dataset.id));
+        });
+    }, err => console.error('Courses snapshot error', err));
 }
 
 function showMapModal(course){
@@ -109,7 +115,10 @@ function showCourseMap(courseId){
     }).catch(err => console.error(err));
 }
 
-async function loadStatsData(period = 'day'){
+function detachStatsListener(){ if(statsUnsub){ statsUnsub(); statsUnsub = null; } }
+
+function attachStatsListener(period = 'day'){
+    detachStatsListener();
     const user = firebase.auth().currentUser;
     if(!user) return;
     const now = new Date();
@@ -118,40 +127,43 @@ async function loadStatsData(period = 'day'){
     else if(period === 'week') startDate = new Date(now.getTime() - 7*24*60*60*1000);
     else if(period === 'month') startDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const snapshot = await db.collection('courses').where('chauffeur_id','==',user.uid).where('heure_depart_course','>=', startDate.toISOString()).get();
+    const query = db.collection('courses').where('chauffeur_id','==',user.uid).where('heure_depart_course','>=', startDate.toISOString());
+    statsUnsub = query.onSnapshot(snapshot => {
+        let totalEarned = 0; let totalDistance = 0; let totalTime = 0; const coursesArray = [];
+        snapshot.forEach(doc => { const c = doc.data(); totalEarned += c.prix; totalDistance += c.distance; totalTime += c.duree; coursesArray.push(c); });
 
-    let totalEarned = 0; let totalDistance = 0; let totalTime = 0; const coursesArray = [];
-    snapshot.forEach(doc => { const c = doc.data(); totalEarned += c.prix; totalDistance += c.distance; totalTime += c.duree; coursesArray.push(c); });
+        const avgPrice = coursesArray.length ? totalEarned / coursesArray.length : 0;
+        const avgDistance = coursesArray.length ? totalDistance / coursesArray.length : 0;
+        const perHour = totalTime ? (totalEarned / totalTime) * 60 : 0;
+        const perKm = totalDistance ? totalEarned / totalDistance : 0;
 
-    const avgPrice = coursesArray.length ? totalEarned / coursesArray.length : 0;
-    const avgDistance = coursesArray.length ? totalDistance / coursesArray.length : 0;
-    const perHour = totalTime ? (totalEarned / totalTime) * 60 : 0;
-    const perKm = totalDistance ? totalEarned / totalDistance : 0;
+        document.getElementById('kpi-earned').textContent = `€${totalEarned.toFixed(2)}`;
+        document.getElementById('kpi-courses').textContent = coursesArray.length;
+        document.getElementById('kpi-courses-avg').textContent = coursesArray.length ? `${avgPrice.toFixed(2)}€/course` : '—';
+        document.getElementById('kpi-distance').textContent = `${totalDistance.toFixed(1)} km`;
+        document.getElementById('kpi-distance-avg').textContent = `${avgDistance.toFixed(1)} km/course`;
 
-    document.getElementById('kpi-earned').textContent = `€${totalEarned.toFixed(2)}`;
-    document.getElementById('kpi-courses').textContent = coursesArray.length;
-    document.getElementById('kpi-courses-avg').textContent = coursesArray.length ? `${avgPrice.toFixed(2)}€/course` : '—';
-    document.getElementById('kpi-distance').textContent = `${totalDistance.toFixed(1)} km`;
-    document.getElementById('kpi-distance-avg').textContent = `${avgDistance.toFixed(1)} km/course`;
+        const hours = Math.floor(totalTime / 60); const mins = Math.round(totalTime % 60);
+        document.getElementById('metadata-time').textContent = `${hours}h ${mins}min`;
+        document.getElementById('metadata-avg-price').textContent = `€${avgPrice.toFixed(2)}`;
+        document.getElementById('metadata-per-hour').textContent = `€${perHour.toFixed(2)}`;
+        document.getElementById('metadata-per-km').textContent = `€${perKm.toFixed(2)}`;
 
-    const hours = Math.floor(totalTime / 60); const mins = Math.round(totalTime % 60);
-    document.getElementById('metadata-time').textContent = `${hours}h ${mins}min`;
-    document.getElementById('metadata-avg-price').textContent = `€${avgPrice.toFixed(2)}`;
-    document.getElementById('metadata-per-hour').textContent = `€${perHour.toFixed(2)}`;
-    document.getElementById('metadata-per-km').textContent = `€${perKm.toFixed(2)}`;
+        // progress
+        (async ()=>{
+            try{
+                const chauffeurDoc = await db.collection('chauffeurs').doc(user.uid).get();
+                const objectif = (chauffeurDoc.exists && chauffeurDoc.data().objectif_journalier) ? chauffeurDoc.data().objectif_journalier : 350;
+                const progressPercent = objectif ? (totalEarned / objectif) * 100 : 0;
+                document.getElementById('progress-bar-fill').style.width = Math.min(progressPercent,100) + '%';
+                document.getElementById('progress-earned').textContent = `€${totalEarned.toFixed(2)}`;
+                document.getElementById('progress-goal').textContent = `€${objectif}`;
+                document.getElementById('kpi-earned-vs-goal').textContent = `${Math.round(progressPercent)}% objectif`;
+            }catch(e){ console.warn(e); }
+        })();
 
-    // progress
-    try{
-        const chauffeurDoc = await db.collection('chauffeurs').doc(user.uid).get();
-        const objectif = (chauffeurDoc.exists && chauffeurDoc.data().objectif_journalier) ? chauffeurDoc.data().objectif_journalier : 350;
-        const progressPercent = objectif ? (totalEarned / objectif) * 100 : 0;
-        document.getElementById('progress-bar-fill').style.width = Math.min(progressPercent,100) + '%';
-        document.getElementById('progress-earned').textContent = `€${totalEarned.toFixed(2)}`;
-        document.getElementById('progress-goal').textContent = `€${objectif}`;
-        document.getElementById('kpi-earned-vs-goal').textContent = `${Math.round(progressPercent)}% objectif`;
-    }catch(e){ console.warn(e); }
-
-    drawRevenueChart(coursesArray, period);
+        drawRevenueChart(coursesArray, period);
+    }, err => console.error('Stats snapshot error', err));
 }
 
 function drawRevenueChart(courses, period){
