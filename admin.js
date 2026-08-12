@@ -19,6 +19,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (userDoc.exists && userDoc.data().role === 'admin') {
                 // L'utilisateur est un admin, on charge les données
                 loadAndRenderDrivers();
+                // show backfill button for admins
+                try{
+                    const backfillBtn = document.getElementById('backfill-btn');
+                    const backfillStatus = document.getElementById('backfill-status');
+                    if(backfillBtn){
+                        backfillBtn.style.display = 'inline-block';
+                        backfillBtn.addEventListener('click', async () => {
+                            if(!confirm('Lancer le backfill des timestamps pour toutes les courses ? Cette opération mettra à jour les documents existants. Continuer ?')) return;
+                            backfillBtn.disabled = true;
+                            backfillStatus.style.display = 'block';
+                            backfillStatus.textContent = 'Démarrage du backfill...\n';
+                            try{
+                                const res = await runBackfill(db, (msg)=>{ backfillStatus.textContent += msg + '\n'; backfillStatus.scrollTop = backfillStatus.scrollHeight; });
+                                backfillStatus.textContent += `Backfill terminé. Mis à jour: ${res.updated} / ${res.total}`;
+                            }catch(e){
+                                console.error('Backfill failed', e);
+                                backfillStatus.textContent += 'Erreur durant le backfill: ' + (e && e.message ? e.message : e) + '\n';
+                            } finally {
+                                backfillBtn.disabled = false;
+                            }
+                        });
+                    }
+                }catch(e){ console.warn('backfill UI init failed', e); }
             } else {
                 // Pas un admin, on le redirige
                 console.warn("Accès non autorisé: l'utilisateur n'est pas un administrateur.");
@@ -145,4 +168,45 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("Une erreur est survenue. Veuillez réessayer.");
         }
     });
+
+    // Backfill helper: updates missing timestamp_depart / timestamp_arrivee
+    async function runBackfill(db, onLog){
+        const snapshot = await db.collection('courses').get();
+        const total = snapshot.size;
+        let updated = 0;
+        onLog && onLog(`Courses total: ${total}`);
+        for(const doc of snapshot.docs){
+            const data = doc.data();
+            if(data.timestamp_depart) continue;
+            let baseDate = null;
+            try{
+                // doc.createTime may not be available in client SDK; fallback to updateTime or now
+                baseDate = (doc.createTime && typeof doc.createTime.toDate === 'function') ? doc.createTime.toDate() : ((doc.updateTime && typeof doc.updateTime.toDate === 'function') ? doc.updateTime.toDate() : new Date());
+            }catch(e){ baseDate = new Date(); }
+            let heureStr = data.heure_depart_course;
+            let dateDepart = new Date(baseDate);
+            if(heureStr && typeof heureStr === 'string'){
+                if(/\d{4}-\d{2}-\d{2}T/.test(heureStr)){
+                    try{ dateDepart = new Date(heureStr); }catch(e){}
+                } else if(/^\d{2}:\d{2}/.test(heureStr)){
+                    const p = heureStr.split(':'); dateDepart.setHours(parseInt(p[0],10)); dateDepart.setMinutes(parseInt(p[1],10)); dateDepart.setSeconds(0); dateDepart.setMilliseconds(0);
+                }
+            }
+            let dateArrivee = null;
+            if(data.heure_arrivee_course && typeof data.heure_arrivee_course === 'string'){
+                if(/\d{4}-\d{2}-\d{2}T/.test(data.heure_arrivee_course)){
+                    try{ dateArrivee = new Date(data.heure_arrivee_course);}catch(e){}
+                } else if(/^\d{2}:\d{2}/.test(data.heure_arrivee_course)){
+                    const p = data.heure_arrivee_course.split(':'); dateArrivee = new Date(dateDepart); dateArrivee.setHours(parseInt(p[0],10)); dateArrivee.setMinutes(parseInt(p[1],10));
+                }
+            }
+            const updates = {};
+            try{ updates.timestamp_depart = firebase.firestore.Timestamp.fromDate(dateDepart); }catch(e){}
+            if(dateArrivee) try{ updates.timestamp_arrivee = firebase.firestore.Timestamp.fromDate(dateArrivee); }catch(e){}
+            if(Object.keys(updates).length){
+                try{ await doc.ref.update(updates); updated++; onLog && onLog(`Updated ${doc.id}`); }catch(e){ onLog && onLog(`Failed ${doc.id}: ${e.message || e}`); }
+            }
+        }
+        return { total, updated };
+    }
 });
