@@ -11,21 +11,85 @@
 </head>
 <body>
     <div class="container">
-        <h1>Tableau de bord Chauffeur</h1>
+        <header class="driver-header card">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div style="font-weight:800;color:var(--primary)">VTC Tracker</div>
+                <div class="muted" id="session-status">Chargement du statut...</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <div class="muted" id="current-time"></div>
+                <button id="logout-btn" class="btn ghost">Se déconnecter</button>
+            </div>
+        </header>
 
-        <div id="session-status" style="text-align: center; margin-bottom: 1rem; font-weight: bold;">
-            Chargement du statut...
-        </div>
+        <!-- Etat: En attente -->
+        <section id="waiting-state" class="card mb-16">
+            <div class="driver-hero">
+                <div class="big-vehicle">🚗</div>
+                <h2>Bonjour, chauffeur !</h2>
+                <p class="muted">Objectif d'aujourd'hui</p>
+                <div style="font-weight:700;font-size:1.25rem">350 €</div>
+            </div>
+            <div class="dashboard-actions">
+                <button id="start-day-btn" class="btn">Démarrer ma journée</button>
+                <button id="my-rides-btn" class="btn secondary">Mes courses (0)</button>
+                <button id="stats-btn" class="btn ghost">Statistiques</button>
+            </div>
+        </section>
 
-        <div class="form-group">
-            <button id="start-day-btn">Démarrer ma journée</button>
-        </div>
-        <div class="form-group">
-            <button id="end-day-btn" style="display: none; background-color: #d9534f;">Terminer ma journée</button>
-        </div>
+        <!-- Etat: Session active (pas de course) -->
+        <section id="session-active-state" class="card mb-16" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <div style="font-weight:700">Journée en cours</div>
+                    <div class="muted">Depuis 0h 00min</div>
+                </div>
+                <div style="width:40%">
+                    <div class="progress" aria-hidden><i style="width:67%"></i></div>
+                    <div class="muted" style="font-size:0.85rem;margin-top:6px">€234 / €350 (67%)</div>
+                </div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:12px">
+                <button id="start-course-btn" class="btn">Démarrer une course</button>
+                <button id="end-day-btn" class="btn danger" style="display:none;">Terminer la journée</button>
+            </div>
+        </section>
 
-        <p>Bienvenue !</p>
-        <button id="logout-btn">Se déconnecter</button>
+        <!-- Etat: Course en cours -->
+        <section id="course-state" class="card mb-16" style="display:none;">
+            <div class="hud-strip" style="display:flex;justify-content:space-between;padding:8px 12px;background:linear-gradient(90deg,rgba(0,168,107,0.08),rgba(15,160,88,0.03));border-radius:12px;margin-bottom:12px">
+                <div><strong>Distance:</strong> <span id="hud-distance">0.0 km</span></div>
+                <div><strong>Temps:</strong> <span id="hud-time">00:00:00</span></div>
+            </div>
+            <div id="map-wrapper" style="margin-top:0.5rem; display:block;" class="map-card">
+                <div id="map" style="height:60vh; width:100%;"></div>
+                <div id="map-overlay" class="map-overlay" style="display:none;">
+                    <div class="overlay-row"><span class="overlay-label">Temps</span><span id="overlay-time">00:00:00</span></div>
+                    <div class="overlay-row"><span class="overlay-label">Distance</span><span id="overlay-distance">0.0 km</span></div>
+                </div>
+            </div>
+            <div style="margin-top:12px">
+                <button id="end-course-btn" class="btn danger">Terminer la course</button>
+            </div>
+        </section>
+
+        <!-- Etat: Fin de course (saisie prix) -->
+        <section id="endcourse-state" class="card mb-16" style="display:none;">
+            <h2>Résumé de la course</h2>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                <div>Distance: <span id="summary-distance">0.0 km</span></div>
+                <div>Durée: <span id="summary-duration">0 min</span></div>
+                <div>Départ: <span id="summary-depart">--:--</span></div>
+                <div>Arrivée: <span id="summary-arrivee">--:--</span></div>
+            </div>
+            <div style="margin-top:12px">
+                <input id="price-input" type="number" placeholder="Prix (€)" />
+            </div>
+            <div style="display:flex;gap:12px;margin-top:12px">
+                <button id="save-course-btn" class="btn">Enregistrer Course</button>
+                <button id="cancel-course-btn" class="btn ghost">Annuler</button>
+            </div>
+        </section>
     </div>
 
     <!-- Bloc tracking GPS (visible seulement si session active) -->

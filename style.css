@@ -1,36 +1,37 @@
 :root{
-    --bg:#0f1720; /* dark for app background fallback */
-    --surface:#ffffff;
-    --primary:#0b6efd; /* bleu principal */
-    --accent:#ff6b35; /* accent warm */
-    --muted:#6b7280; /* gris texte */
-    --card-shadow: 0 6px 18px rgba(16,24,40,0.08);
+    --bg:#F8F9FB; /* app background */
+    --surface:#FFFFFF;
+    --primary:#00A86B; /* vert émeraude */
+    --danger:#FF6B6B; /* action destructive */
+    --accent:#0FA058; /* dégradé secondaire */
+    --muted:#757575; /* gris texte */
+    --border:#E8E8E8;
+    --card-shadow: 0 4px 16px rgba(2,6,23,0.06);
 }
 
 /* Global layout */
 body{
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: #f6f7fb;
-    color: #0f1720;
+    background: var(--bg);
+    color: #1A1A1A;
     margin:0;
-    padding:16px;
+    padding:12px;
+    -webkit-font-smoothing:antialiased;
 }
 
 .container{
-    background: var(--surface);
-    padding:16px;
-    border-radius:12px;
-    box-shadow: var(--card-shadow);
+    background: transparent;
+    padding:0;
     width:100%;
     max-width:920px;
     box-sizing:border-box;
-    margin: 8px auto;
+    margin: 6px auto;
 }
 
 h1{font-size:1.25rem;margin:0 0 12px 0;color:var(--primary);}
 h2{font-size:1rem;margin:0 0 8px 0;color:#111827}
 
-.card{background:var(--surface);border-radius:12px;padding:12px;box-shadow:var(--card-shadow);}
+.card{background:var(--surface);border-radius:20px;padding:20px;box-shadow:var(--card-shadow);border:1px solid var(--border)}
 
 .form-group{margin-bottom:12px}
 label{display:block;margin-bottom:6px;color:var(--muted);font-size:.95rem}
@@ -39,20 +40,23 @@ input[type="email"], input[type="password"], input[type="text"], input[type="num
     width:100%;padding:10px;border:1px solid #e6e9ef;border-radius:8px;box-sizing:border-box;font-size:1rem
 }
 
-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px;border-radius:10px;border:none;color:white;background:var(--primary);font-weight:600;cursor:pointer}
-button.secondary{background:#f3f4f6;color:#111}
-button.negative{background:#ef4444}
-button:active{transform:translateY(1px)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px;border-radius:14px;border:none;color:white;background:var(--primary);font-weight:700;cursor:pointer}
+.btn.secondary{background:transparent;color:var(--primary);border:2px solid var(--primary);padding:12px 14px}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn.danger{background:var(--danger)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
 button[disabled]{opacity:.6;cursor:default}
 
 .muted{color:var(--muted)}
 
 /* Map styling */
-#map{border-radius:10px;overflow:hidden}
+#map{border-radius:16px;overflow:hidden}
 
 /* Car icon styles */
-.car-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center}
-.car-svg{width:36px;height:36px;transition:transform 300ms linear}
+.car-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center}
+.car-svg{width:44px;height:44px;transition:transform 300ms linear}
 
 /* Small helpers */
 .center{text-align:center}
@@ -107,3 +111,18 @@ p{color:#374151}
 /* utility spacing */
 .mb-8{margin-bottom:8px}
 .mb-16{margin-bottom:16px}
+
+/* Driver dashboard specific */
+.driver-header{display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:12px}
+.driver-hero{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px}
+.big-vehicle{font-size:48px}
+.dashboard-actions{display:flex;flex-direction:column;gap:12px;padding:12px}
+
+.hud-strip{font-weight:700;color:#0f1720}
+
+input[type="number"]#price-input{width:100%;padding:14px;border-radius:12px;border:2px solid var(--border);background:#F8F9FB;font-size:1.125rem}
+input[type="number"]#price-input:focus{outline:none;border-color:var(--primary);box-shadow:0 6px 18px rgba(15,160,88,0.12)}
+
+/* small helpers */
+.hidden{display:none !important}
+
