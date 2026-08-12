@@ -56,9 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!map){
             map = L.map('map').setView([center.lat, center.lng], 16);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            // CartoDB Voyager tiles (modern, no API key)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 maxZoom: 19,
-                attribution: '© OpenStreetMap'
+                attribution: '© OpenStreetMap contributors © CARTO'
             }).addTo(map);
 
             // create a car divIcon (SVG) so we can rotate the SVG independently
@@ -77,6 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
             polyline.setLatLngs([[center.lat, center.lng]]);
         }
     }
+
+    // start and end markers for visual anchors
+    let startMarker = null;
+    let endMarker = null;
+    let overlayIntervalId = null;
 
     // compute bearing between two lat/lng points in degrees
     function bearingBetween(start, end){
@@ -169,6 +175,19 @@ document.addEventListener('DOMContentLoaded', () => {
             mapWrapper.style.display = 'block';
             initMap(coords_depart);
 
+            // add a styled start marker
+            if(startMarker){ startMarker.remove(); startMarker = null; }
+            startMarker = L.marker([coords_depart.lat, coords_depart.lng], { 
+                icon: L.divIcon({ className: 'start-marker', iconSize:[18,18], iconAnchor:[9,9] }),
+                interactive: false
+            }).addTo(map);
+
+            // show overlay and start updating live stats
+            const overlay = document.getElementById('map-overlay');
+            if(overlay){ overlay.style.display = 'block'; }
+            if(overlayIntervalId) clearInterval(overlayIntervalId);
+            overlayIntervalId = setInterval(updateOverlay, 1000);
+
             // Lance le watchPosition
             watchId = navigator.geolocation.watchPosition(pos => {
                 const { latitude, longitude } = pos.coords;
@@ -246,7 +265,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch(e){ duree = 0; }
 
         // Afficher formulaire prix
+        // add end marker
+        if(endMarker){ endMarker.remove(); endMarker = null; }
+        endMarker = L.marker([coords_arrivee.lat, coords_arrivee.lng], {
+            icon: L.divIcon({ className: 'end-marker', iconSize:[36,36], iconAnchor:[18,18]}),
+            interactive: false
+        }).addTo(map);
+
+        // stop overlay updates
+        if(overlayIntervalId){ clearInterval(overlayIntervalId); overlayIntervalId = null; }
+        const overlay = document.getElementById('map-overlay');
+        if(overlay){ overlay.style.display = 'block'; updateOverlay(); }
+
         renderPriceForm({ distance, duree });
+    }
+
+    function updateOverlay(){
+        // updates #overlay-time and #overlay-distance
+        try{
+            const timeEl = document.getElementById('overlay-time');
+            const distEl = document.getElementById('overlay-distance');
+            if(!timeEl || !distEl || !heure_depart_course) return;
+
+            const depart = new Date(heure_depart_course);
+            const now = new Date();
+            const diff = Math.max(0, now - depart);
+            const hh = String(Math.floor(diff/3600000)).padStart(2,'0');
+            const mm = String(Math.floor((diff%3600000)/60000)).padStart(2,'0');
+            const ss = String(Math.floor((diff%60000)/1000)).padStart(2,'0');
+            timeEl.textContent = `${hh}:${mm}:${ss}`;
+
+            // compute distance live
+            let liveDist = 0;
+            for(let i=1;i<trajet_gps.length;i++){
+                const a = { lat: trajet_gps[i-1].lat, lng: trajet_gps[i-1].lng };
+                const b = { lat: trajet_gps[i].lat, lng: trajet_gps[i].lng };
+                liveDist += (typeof haversineKm === 'function') ? haversineKm(a,b) : 0;
+            }
+            distEl.textContent = `${(Math.round(liveDist*100)/100).toFixed(2)} km`;
+        }catch(e){/* ignore */}
     }
 
     function renderPriceForm({ distance, duree }){
@@ -326,6 +383,12 @@ document.addEventListener('DOMContentLoaded', () => {
             marker = null;
             polyline = null;
         }
+
+        if(startMarker){ startMarker.remove(); startMarker = null; }
+        if(endMarker){ endMarker.remove(); endMarker = null; }
+        if(overlayIntervalId){ clearInterval(overlayIntervalId); overlayIntervalId = null; }
+        const overlay = document.getElementById('map-overlay');
+        if(overlay){ overlay.style.display = 'none'; document.getElementById('overlay-time').textContent='00:00:00'; document.getElementById('overlay-distance').textContent='0.0 km'; }
 
         trajet_gps = [];
         coords_depart = null;
