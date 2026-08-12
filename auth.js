@@ -1,18 +1,28 @@
-// Configuration et initialisation de Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyCgaSbAqE7f2KskhAvKqU5Zq8rhXQrhrk8",
-  authDomain: "vtc-tracker-318fc.firebaseapp.com",
-  projectId: "vtc-tracker-318fc",
-  storageBucket: "vtc-tracker-318fc.firebasestorage.app",
-  messagingSenderId: "896728030893",
-  appId: "1:896728030893:web:d28d910f74e758fe46b024",
-  measurementId: "G-HPE7XH1MK4"
-};
-
-// Initialiser Firebase
-firebase.initializeApp(firebaseConfig);
-
 document.addEventListener('DOMContentLoaded', function() {
+    // On attend que le DOM soit chargé pour être sûr que l'objet `firebase` des SDKs est disponible.
+
+    // Votre configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCgaSbAqE7f2KskhAvKqU5Zq8rhXQrhrk8",
+      authDomain: "vtc-tracker-318fc.firebaseapp.com",
+      projectId: "vtc-tracker-318fc",
+      storageBucket: "vtc-tracker-318fc.firebasestorage.app",
+      messagingSenderId: "896728030893",
+      appId: "1:896728030893:web:d28d910f74e758fe46b024",
+      measurementId: "G-HPE7XH1MK4"
+    };
+
+    // Initialiser Firebase seulement si ce n'est pas déjà fait, pour éviter les erreurs de rechargement.
+    if (!firebase.apps.length) {
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (e) {
+            console.error("Erreur lors de l'initialisation de Firebase", e);
+            alert("Erreur critique : Impossible de se connecter aux services. Vérifiez la console pour plus de détails.");
+            return;
+        }
+    }
+
     const auth = firebase.auth();
     const db = firebase.firestore();
 
@@ -49,7 +59,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch((error) => {
                     console.error("Erreur d'inscription:", error);
-                    errorMessage.textContent = error.message;
+                    let userMessage = "Une erreur est survenue lors de l'inscription. Veuillez réessayer.";
+                    switch (error.code) {
+                        case 'auth/email-already-in-use':
+                            userMessage = "Cette adresse email est déjà utilisée par un autre compte.";
+                            break;
+                        case 'auth/invalid-email':
+                            userMessage = "L'adresse email fournie n'est pas valide.";
+                            break;
+                        case 'auth/weak-password':
+                            userMessage = "Le mot de passe est trop faible. Il doit contenir au moins 6 caractères.";
+                            break;
+                    }
+                    errorMessage.textContent = userMessage;
                 });
         });
     }
@@ -80,7 +102,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch((error) => {
                     console.error("Erreur de connexion:", error);
-                    errorMessage.textContent = "Email ou mot de passe incorrect.";
+                    let userMessage = "Une erreur est survenue lors de la connexion.";
+                    // Les codes d'erreur peuvent varier légèrement, on couvre les cas les plus courants.
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                        userMessage = "L'adresse email ou le mot de passe est incorrect.";
+                    }
+                    errorMessage.textContent = userMessage;
                 });
         });
     }
