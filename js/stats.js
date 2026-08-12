@@ -28,14 +28,14 @@ function attachCoursesListener(filter = 'today'){
     const user = firebase.auth().currentUser;
     if(!user) return;
     console.log('attachCoursesListener', { filter, uid: user.uid });
-    let query = db.collection('courses').where('chauffeur_id','==',user.uid).orderBy('heure_depart_course','desc');
+    let query = db.collection('courses').where('chauffeur_id','==',user.uid).orderBy('timestamp_depart','desc');
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfWeek = new Date(now.getTime() - 7*24*60*60*1000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    if(filter === 'today') query = query.where('heure_depart_course','>=', startOfDay.toISOString());
-    else if(filter === 'week') query = query.where('heure_depart_course','>=', startOfWeek.toISOString());
-    else if(filter === 'month') query = query.where('heure_depart_course','>=', startOfMonth.toISOString());
+    if(filter === 'today') query = query.where('timestamp_depart','>=', firebase.firestore.Timestamp.fromDate(startOfDay));
+    else if(filter === 'week') query = query.where('timestamp_depart','>=', firebase.firestore.Timestamp.fromDate(startOfWeek));
+    else if(filter === 'month') query = query.where('timestamp_depart','>=', firebase.firestore.Timestamp.fromDate(startOfMonth));
 
     coursesUnsub = query.onSnapshot(snapshot => {
         console.log('courses snapshot', { size: snapshot.size, ids: snapshot.docs.map(d=>d.id).slice(0,10) });
@@ -131,7 +131,8 @@ function attachStatsListener(period = 'day'){
     else if(period === 'week') startDate = new Date(now.getTime() - 7*24*60*60*1000);
     else if(period === 'month') startDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const query = db.collection('courses').where('chauffeur_id','==',user.uid).where('heure_depart_course','>=', startDate.toISOString());
+    const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
+    const query = db.collection('courses').where('chauffeur_id','==',user.uid).where('timestamp_depart','>=', startTimestamp);
     statsUnsub = query.onSnapshot(snapshot => {
         let totalEarned = 0; let totalDistance = 0; let totalTime = 0; const coursesArray = [];
         snapshot.forEach(doc => { const c = doc.data(); totalEarned += c.prix; totalDistance += c.distance; totalTime += c.duree; coursesArray.push(c); });
@@ -175,7 +176,13 @@ function drawRevenueChart(courses, period){
     if(!ctx) return;
     const dataByDay = {};
     courses.forEach(course => {
-        const date = (course.heure_depart_course || '').split(' ')[0] || (new Date()).toISOString().split('T')[0];
+        let date = null;
+        if(course.timestamp_depart && course.timestamp_depart.toDate){
+            try{ date = course.timestamp_depart.toDate().toISOString().split('T')[0]; }catch(e){}
+        }
+        if(!date){
+            date = (course.heure_depart_course || '').split(' ')[0] || (new Date()).toISOString().split('T')[0];
+        }
         if(!dataByDay[date]) dataByDay[date]=0;
         dataByDay[date]+=course.prix;
     });

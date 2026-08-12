@@ -333,11 +333,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const prix = parseFloat(priceInput && priceInput.value);
             if(isNaN(prix) || prix < 0){ alert('Veuillez saisir un prix valide.'); return; }
 
+            // build timestamps from ISO strings
+            let timestampDepart = null;
+            let timestampArrivee = null;
+            try{
+                if(heure_depart_course) timestampDepart = firebase.firestore.Timestamp.fromDate(new Date(heure_depart_course));
+            }catch(e){ timestampDepart = null; }
+            try{
+                if(heure_arrivee_course) timestampArrivee = firebase.firestore.Timestamp.fromDate(new Date(heure_arrivee_course));
+            }catch(e){ timestampArrivee = null; }
+
             const courseDoc = {
                 chauffeur_id: currentUser.uid,
                 session_id: activeSessionDoc ? activeSessionDoc.id : null,
                 heure_depart_course: heure_depart_course,
                 heure_arrivee_course: heure_arrivee_course,
+                timestamp_depart: timestampDepart,
+                timestamp_arrivee: timestampArrivee,
                 coords_depart: coords_depart,
                 coords_arrivee: coords_arrivee,
                 distance: distance,
