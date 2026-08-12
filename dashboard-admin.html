@@ -5,13 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tableau de bord Admin</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="mobile.css">
+    <style>
+        /* Styles spécifiques pour le dashboard admin */
+        .driver-list {
+            list-style: none;
+            padding: 0;
+        }
+        .driver-item {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .driver-item .info {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .driver-item .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .driver-item .actions button {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            width: auto;
+        }
+        .btn-approve {
+            background-color: #28a745;
+        }
+        .btn-approve:hover {
+            background-color: #218838;
+        }
+        .btn-refuse {
+            background-color: #dc3545;
+        }
+        .btn-refuse:hover {
+            background-color: #c82333;
+        }
+        .update-goal {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .update-goal input {
+            width: 80px;
+            padding: 0.4rem;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Tableau de bord Administrateur</h1>
-        <p>Bienvenue, Admin !</p>
-        <button id="logout-btn">Se déconnecter</button>
+    <div class="container" style="max-width: 800px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>Tableau de bord Admin</h1>
+            <button id="logout-btn" style="width: auto; padding: 0.5rem 1rem;">Déconnexion</button>
+        </div>
+
+        <hr>
+
+        <section id="pending-drivers">
+            <h2>Chauffeurs en attente</h2>
+            <div id="pending-list-container">
+                <p>Chargement...</p>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="approved-drivers">
+            <h2>Chauffeurs approuvés</h2>
+            <div id="approved-list-container">
+                <p>Chargement...</p>
+            </div>
+        </section>
     </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <!-- Scripts locaux -->
     <script src="auth.js"></script>
+    <script src="admin.js"></script>
 </body>
 </html>

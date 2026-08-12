@@ -10,9 +10,30 @@
 <body>
     <div class="container">
         <h1>Tableau de bord Chauffeur</h1>
+
+        <div id="session-status" style="text-align: center; margin-bottom: 1rem; font-weight: bold;">
+            Chargement du statut...
+        </div>
+
+        <div class="form-group">
+            <button id="start-day-btn">Démarrer ma journée</button>
+        </div>
+        <div class="form-group">
+            <button id="end-day-btn" style="display: none; background-color: #d9534f;">Terminer ma journée</button>
+        </div>
+
         <p>Bienvenue !</p>
         <button id="logout-btn">Se déconnecter</button>
     </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <!-- Scripts locaux -->
     <script src="auth.js"></script>
+    <script src="session.js"></script>
+
 </body>
 </html>
