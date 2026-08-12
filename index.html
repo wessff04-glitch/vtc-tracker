@@ -32,5 +32,26 @@
 
     <!-- Scripts locaux -->
     <script src="auth.js"></script>
+    <script src="js/app-version.js"></script>
+    <script>
+        // Enregistre le Service Worker et signale la disponibilité d'une nouvelle version
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                // Vérifie les mises à jour toutes les heures
+                setInterval(() => reg.update(), 60 * 60 * 1000);
+
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            if (confirm('Une nouvelle version est disponible. Recharger ?')) {
+                                window.location.reload();
+                            }
+                        }
+                    });
+                });
+            }).catch(err => console.warn('SW registration failed', err));
+        }
+    </script>
 </body>
 </html>
