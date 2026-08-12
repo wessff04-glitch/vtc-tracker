@@ -42,6 +42,23 @@ function attachCoursesListener(filter = 'today'){
         const coursesList = document.getElementById('courses-list');
         if(!coursesList) return;
         coursesList.innerHTML = '';
+        if(snapshot.empty){
+            // Fallback: some older documents may lack `timestamp_depart` — fetch recent courses without timestamp filter
+            console.warn('No courses found with timestamp filter, using fallback query to show recent courses.');
+            db.collection('courses').where('chauffeur_id','==',user.uid).limit(50).get().then(fallbackSnap => {
+                if(fallbackSnap.empty){
+                    coursesList.innerHTML = '<p>Aucune course trouvée.</p>';
+                    return;
+                }
+                fallbackSnap.forEach(doc => renderCourseCard(doc, coursesList));
+                // show hint to admin
+                const hint = document.createElement('div'); hint.className='muted'; hint.style.marginTop='8px'; hint.textContent = 'Remarque: certaines courses anciennes n\'ont pas de timestamps Firestore. Exécutez le backfill depuis l\'espace admin pour restaurer le filtrage par période.';
+                coursesList.appendChild(hint);
+                document.querySelectorAll('.view-route-btn').forEach(b => { b.addEventListener('click', (e) => showCourseMap(e.target.dataset.id)); });
+            }).catch(err => { console.error('Fallback query failed', err); coursesList.innerHTML = '<p>Erreur lors du chargement des courses.</p>'; });
+            return;
+        }
+
         snapshot.forEach(doc => {
             const course = doc.data();
             const courseCard = document.createElement('div');
@@ -73,10 +90,39 @@ function attachCoursesListener(filter = 'today'){
             coursesList.appendChild(courseCard);
         });
         // wire view buttons
-        document.querySelectorAll('.view-route-btn').forEach(b => {
-            b.addEventListener('click', (e) => showCourseMap(e.target.dataset.id));
-        });
+        document.querySelectorAll('.view-route-btn').forEach(b => { b.addEventListener('click', (e) => showCourseMap(e.target.dataset.id)); });
     }, err => console.error('Courses snapshot error', err));
+}
+
+function renderCourseCard(doc, container){
+    const course = doc.data();
+    const courseCard = document.createElement('div');
+    courseCard.className = 'course-card';
+    const avg = course.distance && course.distance > 0 ? (course.prix / course.distance).toFixed(2) : '—';
+    courseCard.innerHTML = `
+        <div class="course-card-header">
+            <span class="course-time">${course.heure_depart_course || '??:??'} → ${course.heure_arrivee_course || '??:??'}</span>
+            <span class="course-price">€${(course.prix||0).toFixed(2)}</span>
+        </div>
+        <div class="course-card-stats">
+            <div class="course-card-stat">
+                <span class="course-card-stat-label">Distance</span>
+                <span class="course-card-stat-value">${(course.distance||0).toFixed(1)} km</span>
+            </div>
+            <div class="course-card-stat">
+                <span class="course-card-stat-label">Durée</span>
+                <span class="course-card-stat-value">${course.duree||0} min</span>
+            </div>
+            <div class="course-card-stat">
+                <span class="course-card-stat-label">Moyenne</span>
+                <span class="course-card-stat-value">€${avg}/km</span>
+            </div>
+        </div>
+        <div class="course-card-action">
+            <button class="view-route-btn" data-id="${doc.id}">📍 Voir le trajet</button>
+        </div>
+    `;
+    container.appendChild(courseCard);
 }
 
 function showMapModal(course){
