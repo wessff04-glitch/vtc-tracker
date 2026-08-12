@@ -2,6 +2,7 @@
 let statsChart = null;
 let coursesUnsub = null;
 let statsUnsub = null;
+let db = null;
 
 function setupTabs(){
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -26,6 +27,7 @@ function attachCoursesListener(filter = 'today'){
     detachCoursesListener();
     const user = firebase.auth().currentUser;
     if(!user) return;
+    console.log('attachCoursesListener', { filter, uid: user.uid });
     let query = db.collection('courses').where('chauffeur_id','==',user.uid).orderBy('heure_depart_course','desc');
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -36,6 +38,7 @@ function attachCoursesListener(filter = 'today'){
     else if(filter === 'month') query = query.where('heure_depart_course','>=', startOfMonth.toISOString());
 
     coursesUnsub = query.onSnapshot(snapshot => {
+        console.log('courses snapshot', { size: snapshot.size, ids: snapshot.docs.map(d=>d.id).slice(0,10) });
         const coursesList = document.getElementById('courses-list');
         if(!coursesList) return;
         coursesList.innerHTML = '';
@@ -121,6 +124,7 @@ function attachStatsListener(period = 'day'){
     detachStatsListener();
     const user = firebase.auth().currentUser;
     if(!user) return;
+    console.log('attachStatsListener', { period, uid: user.uid });
     const now = new Date();
     let startDate = new Date();
     if(period === 'day') startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -186,16 +190,31 @@ function drawRevenueChart(courses, period){
 
 // period buttons
 document.addEventListener('DOMContentLoaded', () => {
+    if(typeof firebase === 'undefined'){
+        console.error('Firebase not loaded for stats.js');
+        return;
+    }
+    db = firebase.firestore();
     setupTabs();
     const filter = document.getElementById('courses-filter');
-    if(filter) filter.addEventListener('change', () => loadCourses(filter.value));
+    if(filter) filter.addEventListener('change', () => attachCoursesListener(filter.value));
 
     document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', () => {
         document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
-        loadStatsData(btn.dataset.period || 'day');
+        attachStatsListener(btn.dataset.period || 'day');
     }));
 
-    // load default tab content
-    if(document.querySelector('.tab-btn.active')?.dataset.tab === 'tab-stats') loadStatsData('day');
+    // React to auth changes and attach/detach listeners
+    firebase.auth().onAuthStateChanged(user => {
+        if(user){
+            console.log('stats: auth user', user.uid);
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+            if(activeTab === 'tab-courses') attachCoursesListener(document.getElementById('courses-filter')?.value || 'today');
+            if(activeTab === 'tab-stats') attachStatsListener(document.querySelector('.period-btn.active')?.dataset.period || 'day');
+        } else {
+            detachCoursesListener();
+            detachStatsListener();
+        }
+    });
 });
