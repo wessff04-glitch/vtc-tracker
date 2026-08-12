@@ -16,3 +16,18 @@
     /* admin desktop spacing */
     .container{max-width:1100px}
 }
+
+/* Mobile-first layout specifics */
+@media (max-width: 600px){
+    .container{padding:16px}
+    #map{height:60vh}
+    .map-card{padding:12px}
+    .map-overlay{left:12px;top:12px;right:auto}
+    .controls{flex-direction:column}
+}
+
+@media (min-width: 601px){
+    /* tablet/desktop tweaks */
+    .controls{flex-direction:row}
+    #map{height:480px}
+}
