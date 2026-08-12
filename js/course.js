@@ -158,6 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 animateMarkerTo(prev, next, 1000).catch(()=>{});
             }
+            // update HUD immediately
+            try{ updateOverlay(); }catch(e){}
         }
     }
 
@@ -198,6 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
             overlayIntervalId = setInterval(updateOverlay, 1000);
             // show course UI
             showState('course-state');
+
+                // show fixed HUD strip if present
+                try{ const hud = document.getElementById('hud-strip'); if(hud) hud.classList.remove('hidden'); }catch(e){}
 
             // Lance le watchPosition
             watchId = navigator.geolocation.watchPosition(pos => {
@@ -288,6 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlay = document.getElementById('map-overlay');
         if(overlay){ overlay.style.display = 'block'; updateOverlay(); }
 
+        // hide fixed HUD strip
+        try{ const hud = document.getElementById('hud-strip'); if(hud) hud.classList.add('hidden'); }catch(e){}
+
         // populate endcourse-state summary
         const sd = document.getElementById('summary-distance');
         const sdur = document.getElementById('summary-duration');
@@ -350,6 +358,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try{
             const timeEl = document.getElementById('overlay-time');
             const distEl = document.getElementById('overlay-distance');
+            const hudTime = document.getElementById('hud-time');
+            const hudDist = document.getElementById('hud-distance');
+            const hudSpeed = document.getElementById('hud-speed');
             if(!timeEl || !distEl || !heure_depart_course) return;
 
             const depart = new Date(heure_depart_course);
@@ -368,6 +379,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 liveDist += (typeof haversineKm === 'function') ? haversineKm(a,b) : 0;
             }
             distEl.textContent = `${(Math.round(liveDist*100)/100).toFixed(2)} km`;
+            // update HUD strip if present
+            if(hudTime) hudTime.textContent = `${hh}:${mm}:${ss}`;
+            if(hudDist) hudDist.textContent = `${(Math.round(liveDist*100)/100).toFixed(2)} km`;
+            // compute instant speed from last two points (km/h)
+            if(hudSpeed){
+                if(trajet_gps.length >= 2){
+                    const a = trajet_gps[trajet_gps.length-2];
+                    const b = trajet_gps[trajet_gps.length-1];
+                    const dkm = (typeof haversineKm === 'function') ? haversineKm({lat:a.lat,lng:a.lng},{lat:b.lat,lng:b.lng}) : 0;
+                    const dt = Math.max(1, (b.timestamp || Date.now()) - (a.timestamp || Date.now()));
+                    const hours = dt / 3600000;
+                    const speed = hours > 0 ? (dkm / hours) : 0;
+                    hudSpeed.textContent = `${Math.round(speed)} km/h`;
+                } else {
+                    hudSpeed.textContent = `0 km/h`;
+                }
+            }
         }catch(e){/* ignore */}
     }
 
@@ -394,6 +422,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if(overlayIntervalId){ clearInterval(overlayIntervalId); overlayIntervalId = null; }
         const overlay = document.getElementById('map-overlay');
         if(overlay){ overlay.style.display = 'none'; document.getElementById('overlay-time').textContent='00:00:00'; document.getElementById('overlay-distance').textContent='0.0 km'; }
+
+        // ensure HUD strip hidden
+        try{ const hud = document.getElementById('hud-strip'); if(hud) hud.classList.add('hidden'); }catch(e){}
 
         trajet_gps = [];
         coords_depart = null;

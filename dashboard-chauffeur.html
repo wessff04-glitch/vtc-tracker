@@ -22,6 +22,22 @@
             </div>
         </header>
 
+        <!-- HUD strip fixé en haut pendant une course -->
+        <div id="hud-strip" class="hud-strip hidden">
+            <div class="hud-strip-item">
+                <span class="hud-strip-label">Distance</span>
+                <span class="hud-strip-value" id="hud-distance">0.0 km</span>
+            </div>
+            <div class="hud-strip-item">
+                <span class="hud-strip-label">Temps</span>
+                <span class="hud-strip-value" id="hud-time">00:00:00</span>
+            </div>
+            <div class="hud-strip-item">
+                <span class="hud-strip-label">Vitesse</span>
+                <span class="hud-strip-value" id="hud-speed">0 km/h</span>
+            </div>
+        </div>
+
         <!-- Etat: En attente -->
         <section id="waiting-state" class="card mb-16">
             <div class="driver-hero">
@@ -57,10 +73,7 @@
 
         <!-- Etat: Course en cours -->
         <section id="course-state" class="card mb-16" style="display:none;">
-            <div class="hud-strip" style="display:flex;justify-content:space-between;padding:8px 12px;background:linear-gradient(90deg,rgba(0,168,107,0.08),rgba(15,160,88,0.03));border-radius:12px;margin-bottom:12px">
-                <div><strong>Distance:</strong> <span id="hud-distance">0.0 km</span></div>
-                <div><strong>Temps:</strong> <span id="hud-time">00:00:00</span></div>
-            </div>
+            <!-- HUD strip replaced by fixed hud-strip at top -->
             <div id="map-wrapper" style="margin-top:0.5rem; display:block;" class="map-card">
                 <div id="map" style="height:60vh; width:100%;"></div>
                 <div id="map-overlay" class="map-overlay" style="display:none;">
