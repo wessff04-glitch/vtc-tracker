@@ -7,11 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    const trackingContainer = document.getElementById('course-tracking-container');
     const startBtn = document.getElementById('start-course-btn');
     const mapWrapper = document.getElementById('map-wrapper');
     const mapEl = document.getElementById('map');
-    const formWrapper = document.getElementById('course-form-wrapper');
+    const endCourseSection = document.getElementById('endcourse-state');
 
     let currentUser = null;
     let activeSessionDoc = null;
@@ -45,10 +44,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Affiche ou masque le bloc de tracking selon session
     function updateVisibility(){
         if(activeSessionDoc){
-            trackingContainer.style.display = 'block';
+            showState('session-active-state');
         } else {
-            trackingContainer.style.display = 'none';
+            showState('waiting-state');
         }
+    }
+
+    function showState(state){
+        // states: waiting-state, session-active-state, course-state, endcourse-state
+        const states = ['waiting-state','session-active-state','course-state','endcourse-state'];
+        states.forEach(s => {
+            const el = document.getElementById(s);
+            if(!el) return;
+            el.style.display = (s === state) ? 'block' : 'none';
+        });
     }
 
     // Initialisation Leaflet
@@ -187,6 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if(overlay){ overlay.style.display = 'block'; }
             if(overlayIntervalId) clearInterval(overlayIntervalId);
             overlayIntervalId = setInterval(updateOverlay, 1000);
+            // show course UI
+            showState('course-state');
 
             // Lance le watchPosition
             watchId = navigator.geolocation.watchPosition(pos => {
@@ -264,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
             duree = Math.round(((arrivee - depart) / 60000) * 10) / 10; // 1 décimale
         }catch(e){ duree = 0; }
 
-        // Afficher formulaire prix
+        // Afficher l'écran de fin de course (résumé + saisie prix)
         // add end marker
         if(endMarker){ endMarker.remove(); endMarker = null; }
         endMarker = L.marker([coords_arrivee.lat, coords_arrivee.lng], {
@@ -277,7 +288,61 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlay = document.getElementById('map-overlay');
         if(overlay){ overlay.style.display = 'block'; updateOverlay(); }
 
-        renderPriceForm({ distance, duree });
+        // populate endcourse-state summary
+        const sd = document.getElementById('summary-distance');
+        const sdur = document.getElementById('summary-duration');
+        const sdep = document.getElementById('summary-depart');
+        const sarr = document.getElementById('summary-arrivee');
+        if(sd) sd.textContent = `${distance} km`;
+        if(sdur) sdur.textContent = `${duree} min`;
+        if(sdep) sdep.textContent = heure_depart_course || '--:--';
+        if(sarr) sarr.textContent = heure_arrivee_course || '--:--';
+
+        // show the endcourse-state
+        showState('endcourse-state');
+
+        // wire buttons
+        const priceInput = document.getElementById('price-input');
+        const saveBtn = document.getElementById('save-course-btn');
+        const cancelBtn = document.getElementById('cancel-course-btn');
+
+        function cleanupEndListeners(){
+            if(saveBtn) saveBtn.removeEventListener('click', onSave);
+            if(cancelBtn) cancelBtn.removeEventListener('click', onCancel);
+        }
+
+        const onSave = async () => {
+            const prix = parseFloat(priceInput && priceInput.value);
+            if(isNaN(prix) || prix < 0){ alert('Veuillez saisir un prix valide.'); return; }
+
+            const courseDoc = {
+                chauffeur_id: currentUser.uid,
+                session_id: activeSessionDoc ? activeSessionDoc.id : null,
+                heure_depart_course: heure_depart_course,
+                heure_arrivee_course: heure_arrivee_course,
+                coords_depart: coords_depart,
+                coords_arrivee: coords_arrivee,
+                distance: distance,
+                duree: duree,
+                prix: prix,
+                trajet_gps: trajet_gps
+            };
+
+            try{
+                await db.collection('courses').add(courseDoc);
+                alert('Course enregistrée.');
+                cleanupEndListeners();
+                resetUIAfterCourse();
+            }catch(err){
+                console.error('Erreur enregistrement course', err);
+                alert('Erreur lors de l’enregistrement. Réessayez.');
+            }
+        };
+
+        const onCancel = () => { cleanupEndListeners(); resetUIAfterCourse(); };
+
+        if(saveBtn) saveBtn.addEventListener('click', onSave);
+        if(cancelBtn) cancelBtn.addEventListener('click', onCancel);
     }
 
     function updateOverlay(){
@@ -306,76 +371,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch(e){/* ignore */}
     }
 
-    function renderPriceForm({ distance, duree }){
-        formWrapper.innerHTML = '';
-        formWrapper.style.display = 'block';
-
-        const info = document.createElement('div');
-        info.style.marginBottom = '0.5rem';
-        info.textContent = `Distance: ${distance} km — Durée: ${duree} min`;
-
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.min = '0';
-        input.step = '0.1';
-        input.placeholder = 'Prix (€)';
-        input.style.padding = '0.5rem';
-        input.style.width = '70%';
-
-        const validateBtn = document.createElement('button');
-        validateBtn.textContent = 'Valider';
-        validateBtn.style.marginLeft = '0.5rem';
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Annuler';
-        cancelBtn.style.marginLeft = '0.5rem';
-
-        formWrapper.appendChild(info);
-        formWrapper.appendChild(input);
-        formWrapper.appendChild(validateBtn);
-        formWrapper.appendChild(cancelBtn);
-
-        validateBtn.addEventListener('click', async () => {
-            const prix = parseFloat(input.value);
-            if(isNaN(prix) || prix < 0){
-                alert('Veuillez saisir un prix valide.');
-                return;
-            }
-
-            // Préparer document
-            const courseDoc = {
-                chauffeur_id: currentUser.uid,
-                session_id: activeSessionDoc ? activeSessionDoc.id : null,
-                heure_depart_course: heure_depart_course,
-                heure_arrivee_course: heure_arrivee_course,
-                coords_depart: coords_depart,
-                coords_arrivee: coords_arrivee,
-                distance: distance,
-                duree: duree,
-                prix: prix,
-                trajet_gps: trajet_gps
-            };
-
-            try{
-                await db.collection('courses').add(courseDoc);
-                alert('Course enregistrée.');
-                resetUIAfterCourse();
-            }catch(err){
-                console.error('Erreur enregistrement course', err);
-                alert('Erreur lors de l’enregistrement. Réessayez.');
-            }
-        });
-
-        cancelBtn.addEventListener('click', () => {
-            resetUIAfterCourse();
-        });
-    }
+    // deprecated: dynamic form replaced by endcourse-state markup
 
     function resetUIAfterCourse(){
         // Réinitialise l'interface pour nouvelle course
-        formWrapper.innerHTML = '';
-        formWrapper.style.display = 'none';
-        mapWrapper.style.display = 'none';
+        // hide map and end states
+        const priceInput = document.getElementById('price-input');
+        if(priceInput) priceInput.value = '';
+        const endSection = document.getElementById('endcourse-state');
+        if(endSection) endSection.style.display = 'none';
+        if(mapWrapper) mapWrapper.style.display = 'none';
 
         if(map){
             map.remove();
@@ -399,6 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
         startBtn.textContent = 'Démarrer une course';
         startBtn.removeEventListener('click', handleStopClick);
         startBtn.addEventListener('click', handleStartClick);
+        // show appropriate state after reset
+        if(activeSessionDoc) showState('session-active-state'); else showState('waiting-state');
     }
 
     // Handlers

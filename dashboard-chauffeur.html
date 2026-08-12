@@ -92,21 +92,7 @@
         </section>
     </div>
 
-    <!-- Bloc tracking GPS (visible seulement si session active) -->
-    <div class="container" id="course-tracking-container" style="display:none; margin-top:1rem;">
-        <div id="course-controls" style="text-align:center;">
-            <button id="start-course-btn">Démarrer une course</button>
-        </div>
-        <div id="map-wrapper" style="margin-top:0.5rem; display:none;">
-            <div id="map" style="height:300px; width:100%;"></div>
-            <!-- Overlay info pendant la course (affiché via JS en cours) -->
-            <div id="map-overlay" class="map-overlay" style="display:none;">
-                <div class="overlay-row"><span class="overlay-label">Temps</span><span id="overlay-time">00:00:00</span></div>
-                <div class="overlay-row"><span class="overlay-label">Distance</span><span id="overlay-distance">0.0 km</span></div>
-            </div>
-        </div>
-        <div id="course-form-wrapper" style="margin-top:0.5rem; display:none; text-align:center;"></div>
-    </div>
+    <!-- legacy tracking block removed (replaced by dashboard states) -->
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
