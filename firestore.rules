@@ -9,11 +9,17 @@ service cloud.firestore {
 
     // Pour l'instant, on bloque tout le reste en attendant les règles détaillées
     match /sessions/{sessionId} {
-      allow read, write: if false;
+      // Les chauffeurs authentifiés peuvent créer leurs sessions et lire/mettre à jour
+      allow create: if request.auth != null && request.resource.data.chauffeur_id == request.auth.uid;
+      allow read: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
     }
 
     match /courses/{courseId} {
-      allow read, write: if false;
+      // Les chauffeurs authentifiés peuvent créer et lire leurs propres courses
+      allow create: if request.auth != null && request.resource.data.chauffeur_id == request.auth.uid;
+      allow read: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
     }
   }
 }
