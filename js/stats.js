@@ -54,6 +54,7 @@ function detachCoursesListener(){
 }
 
 function ecouterStats(uid, period = 'day'){
+    console.debug('ecouterStats called', { uid, period });
     // detach previous
     if(dailyStatsUnsub){ dailyStatsUnsub(); dailyStatsUnsub = null; }
     if(dailyTimerId){ clearInterval(dailyTimerId); dailyTimerId = null; }
@@ -66,11 +67,23 @@ function ecouterStats(uid, period = 'day'){
 
     const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
     const query = db.collection('courses').where('chauffeur_id','==',uid).where('timestamp_depart','>=', startTimestamp);
-
     dailyStatsUnsub = query.onSnapshot(async snapshot => {
+        console.debug('ecouterStats snapshot received', { size: snapshot.size });
         // compute totals
         let totalEarned = 0; let totalDistance = 0; let totalDuree = 0; let coursesCount = 0;
         snapshot.forEach(doc => { const c = doc.data(); totalEarned += (c.prix||0); totalDistance += (c.distance||0); totalDuree += (c.duree||0); coursesCount++; });
+
+        // If snapshot empty, try fallback to recent docs (some older docs may not have timestamp_depart)
+        if(snapshot.empty){
+            try{
+                console.warn('ecouterStats: snapshot empty, trying fallback GET for recent courses');
+                const fallbackSnap = await db.collection('courses').where('chauffeur_id','==',uid).limit(50).get();
+                if(!fallbackSnap.empty){
+                    totalEarned = 0; totalDistance = 0; totalDuree = 0; coursesCount = 0;
+                    fallbackSnap.forEach(doc => { const c = doc.data(); totalEarned += (c.prix||0); totalDistance += (c.distance||0); totalDuree += (c.duree||0); coursesCount++; });
+                }
+            }catch(fbErr){ console.error('Fallback ecouterStats failed', fbErr); }
+        }
 
         // update UI
         try{ document.getElementById('daily-earned').textContent = `${Math.round(totalEarned)} €`; }catch(e){}
