@@ -5,6 +5,7 @@ let statsUnsub = null;
 let db = null;
 let dailyStatsUnsub = null;
 let dailyTimerId = null;
+let periodicRefreshId = null;
 
 // Helper functions used by tab handlers (were missing and caused ReferenceError)
 function loadCourses(filter){
@@ -72,6 +73,8 @@ function ecouterStats(uid, period = 'day'){
                 const sessionSnap = await db.collection('sessions').where('chauffeur_id','==',uid).where('heure_fin','==',null).limit(1).get();
                 if(!sessionSnap.empty){
                     const s = sessionSnap.docs[0].data();
+                    // show live badge
+                    try{ document.getElementById('daily-live-badge').style.display = 'inline-block'; }catch(e){}
                     // build session start datetime from session.date (YYYY-MM-DD) and heure_debut (HH:MM)
                     let startDt = null;
                     if(s.date && s.heure_debut){
@@ -93,6 +96,7 @@ function ecouterStats(uid, period = 'day'){
                         updateLive();
                         dailyTimerId = setInterval(updateLive, 1000);
                     } else {
+                        try{ document.getElementById('daily-live-badge').style.display = 'none'; }catch(e){}
                         // fallback to sum of durations
                         const hh = Math.floor(workMinutes/60); const mm = workMinutes%60;
                         try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
@@ -100,6 +104,7 @@ function ecouterStats(uid, period = 'day'){
                         try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
                     }
                 } else {
+                    try{ document.getElementById('daily-live-badge').style.display = 'none'; }catch(e){}
                     const hh = Math.floor(workMinutes/60); const mm = workMinutes%60;
                     try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
                     const perHour = workMinutes ? (totalEarned / workMinutes) * 60 : 0;
@@ -114,14 +119,18 @@ function ecouterStats(uid, period = 'day'){
             try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
         }
 
-        // objective
+        // objective (calendar-based)
         try{
             const chauffeurDoc = await db.collection('chauffeurs').doc(uid).get();
             let objectifJournalier = (chauffeurDoc.exists && chauffeurDoc.data().objectif_journalier) ? chauffeurDoc.data().objectif_journalier : 0;
-            let objectifForPeriod = 0;
-            if(period === 'day') objectifForPeriod = objectifJournalier;
-            else if(period === 'week') objectifForPeriod = Math.round(objectifJournalier * 7);
-            else if(period === 'month') objectifForPeriod = Math.round(objectifJournalier * 30);
+            // number of days in period based on calendar
+            const now = new Date();
+            let daysInPeriod = 1;
+            if(period === 'day') daysInPeriod = 1;
+            else if(period === 'week') daysInPeriod = 7; // full calendar week
+            else if(period === 'month') daysInPeriod = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+
+            const objectifForPeriod = Math.round(objectifJournalier * daysInPeriod);
             const percent = objectifForPeriod ? Math.min((totalEarned / objectifForPeriod) * 100, 100) : 0;
             try{ document.getElementById('daily-progress-bar').style.width = percent + '%'; }catch(e){}
             try{ document.getElementById('daily-progress-text').textContent = `${Math.round(totalEarned)} € / ${objectifForPeriod} €`; }catch(e){}
@@ -382,6 +391,30 @@ function attachStatsListener(period = 'day'){
     }, err => console.error('Stats snapshot error', err));
 }
 
+function startPeriodicRefresh(){
+    if(periodicRefreshId) return;
+    periodicRefreshId = setInterval(() => {
+        const user = firebase.auth().currentUser;
+        if(!user) return;
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+        if(activeTab === 'tab-journee'){
+            // refresh daily listener by re-calling with same period (safe: ecouterStats detaches previous)
+            const period = 'day';
+            ecouterStats(user.uid, period);
+        } else if(activeTab === 'tab-stats'){
+            const period = document.querySelector('.period-btn.active')?.dataset.period || 'day';
+            attachStatsListener(period);
+        } else if(activeTab === 'tab-courses'){
+            const filter = document.getElementById('courses-filter')?.value || 'today';
+            attachCoursesListener(filter);
+        }
+    }, 60*1000);
+}
+
+function stopPeriodicRefresh(){
+    if(periodicRefreshId){ clearInterval(periodicRefreshId); periodicRefreshId = null; }
+}
+
 function drawRevenueChart(courses, period){
     const ctx = document.getElementById('revenue-chart');
     if(!ctx) return;
@@ -439,10 +472,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if(activeTab === 'tab-courses') attachCoursesListener(document.getElementById('courses-filter')?.value || 'today');
             if(activeTab === 'tab-stats') attachStatsListener(document.querySelector('.period-btn.active')?.dataset.period || 'day');
             if(activeTab === 'tab-journee') ecouterStats(user.uid, document.querySelector('.daily-period-btn.active')?.dataset.period || 'day');
+            // start periodic refresh to keep UI in sync
+            startPeriodicRefresh();
         } else {
             detachCoursesListener();
             detachStatsListener();
             if(dailyStatsUnsub){ dailyStatsUnsub(); dailyStatsUnsub = null; }
+            stopPeriodicRefresh();
         }
     });
+    // Ensure initial tab logic runs even if auth state was already resolved earlier
+    setTimeout(() => {
+        const activeBtn = document.querySelector('.tab-btn.active');
+        if(activeBtn) activeBtn.click();
+        const user = firebase.auth().currentUser;
+        if(user){
+            // make sure listeners are attached immediately
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+            if(activeTab === 'tab-courses') attachCoursesListener(document.getElementById('courses-filter')?.value || 'today');
+            if(activeTab === 'tab-stats') attachStatsListener(document.querySelector('.period-btn.active')?.dataset.period || 'day');
+            if(activeTab === 'tab-journee') ecouterStats(user.uid, document.querySelector('.daily-period-btn.active')?.dataset.period || 'day');
+            startPeriodicRefresh();
+        }
+    }, 50);
 });
