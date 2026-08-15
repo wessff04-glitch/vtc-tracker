@@ -100,7 +100,27 @@ function attachCoursesListener(filter = 'today'){
         });
         // wire view buttons
         document.querySelectorAll('.view-route-btn').forEach(b => { b.addEventListener('click', (e) => showCourseMap(e.target.dataset.id)); });
-    }, err => console.error('Courses snapshot error', err));
+    }, async err => {
+        console.error('Courses snapshot error', err);
+        // If the error is due to a missing/building index, perform a fallback GET
+        try{
+            const msg = (err && (err.message || '')).toLowerCase();
+            const coursesList = document.getElementById('courses-list');
+            if(coursesList && (msg.includes('requires an index') || msg.includes('index'))){
+                console.warn('Index missing/building — using fallback query to display recent courses.');
+                coursesList.innerHTML = '';
+                const fallbackSnap = await db.collection('courses').where('chauffeur_id','==',user.uid).limit(50).get();
+                if(fallbackSnap.empty){
+                    coursesList.innerHTML = '<p>Aucune course trouvée.</p>';
+                } else {
+                    fallbackSnap.forEach(doc => renderCourseCard(doc, coursesList));
+                    const hint = document.createElement('div'); hint.className='muted'; hint.style.marginTop='8px'; hint.textContent = 'Remarque: index en construction. Affichage en mode secours (récupère les 50 courses récentes).';
+                    coursesList.appendChild(hint);
+                    document.querySelectorAll('.view-route-btn').forEach(b => { b.addEventListener('click', (e) => showCourseMap(e.target.dataset.id)); });
+                }
+            }
+        }catch(e2){ console.error('Fallback query failed', e2); }
+    });
 }
 
 function renderCourseCard(doc, container){
