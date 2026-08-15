@@ -4,6 +4,15 @@ let coursesUnsub = null;
 let statsUnsub = null;
 let db = null;
 
+// Helper functions used by tab handlers (were missing and caused ReferenceError)
+function loadCourses(filter){
+    attachCoursesListener(filter || 'today');
+}
+
+function loadStatsData(period){
+    attachStatsListener(period || 'day');
+}
+
 function setupTabs(){
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
