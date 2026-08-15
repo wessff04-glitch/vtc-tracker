@@ -18,14 +18,24 @@ service cloud.firestore {
     match /sessions/{sessionId} {
       // Les chauffeurs authentifiés peuvent créer leurs sessions et lire/mettre à jour
       allow create: if request.auth != null && request.resource.data.chauffeur_id == request.auth.uid;
-      allow read: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
+      // Lecture autorisée pour le propriétaire ou pour un admin
+      allow read: if request.auth != null && (
+        resource.data.chauffeur_id == request.auth.uid ||
+        get(/databases/$(database)/documents/chauffeurs/$(request.auth.uid)).data.role == 'admin'
+      );
+      // Seul le propriétaire peut mettre à jour ou supprimer
       allow update, delete: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
     }
 
     match /courses/{courseId} {
       // Les chauffeurs authentifiés peuvent créer et lire leurs propres courses
       allow create: if request.auth != null && request.resource.data.chauffeur_id == request.auth.uid;
-      allow read: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
+      // Lecture autorisée pour le propriétaire ou pour un admin
+      allow read: if request.auth != null && (
+        resource.data.chauffeur_id == request.auth.uid ||
+        get(/databases/$(database)/documents/chauffeurs/$(request.auth.uid)).data.role == 'admin'
+      );
+      // Seul le propriétaire peut mettre à jour ou supprimer
       allow update, delete: if request.auth != null && resource.data.chauffeur_id == request.auth.uid;
     }
   }
