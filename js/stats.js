@@ -205,6 +205,7 @@ function attachStatsListener(period = 'day'){
     if(period === 'day') startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     else if(period === 'week') startDate = new Date(now.getTime() - 7*24*60*60*1000);
     else if(period === 'month') startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    else if(period === 'year') startDate = new Date(now.getFullYear(), 0, 1);
 
     const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
     const query = db.collection('courses').where('chauffeur_id','==',user.uid).where('timestamp_depart','>=', startTimestamp);
@@ -233,11 +234,29 @@ function attachStatsListener(period = 'day'){
         (async ()=>{
             try{
                 const chauffeurDoc = await db.collection('chauffeurs').doc(user.uid).get();
-                const objectif = (chauffeurDoc.exists && chauffeurDoc.data().objectif_journalier) ? chauffeurDoc.data().objectif_journalier : 350;
-                const progressPercent = objectif ? (totalEarned / objectif) * 100 : 0;
+                // Prefer session's objectif_du_jour if available and we're viewing 'day'
+                let objectifJournalier = (chauffeurDoc.exists && chauffeurDoc.data().objectif_journalier) ? chauffeurDoc.data().objectif_journalier : 0;
+                if(period === 'day'){
+                    try{
+                        const sessionSnap = await db.collection('sessions').where('chauffeur_id','==',user.uid).where('heure_fin','==',null).limit(1).get();
+                        if(!sessionSnap.empty){
+                            const s = sessionSnap.docs[0].data();
+                            if(s.objectif_du_jour || s.objectif_du_jour === 0) objectifJournalier = s.objectif_du_jour;
+                        }
+                    }catch(e){ /* ignore */ }
+                }
+
+                // Compute objective for selected period
+                let objectifForPeriod = 0;
+                if(period === 'day') objectifForPeriod = objectifJournalier;
+                else if(period === 'week') objectifForPeriod = Math.round(objectifJournalier * 7);
+                else if(period === 'month') objectifForPeriod = Math.round(objectifJournalier * 30);
+                else if(period === 'year') objectifForPeriod = Math.round(objectifJournalier * 365);
+
+                const progressPercent = objectifForPeriod ? (totalEarned / objectifForPeriod) * 100 : 0;
                 document.getElementById('progress-bar-fill').style.width = Math.min(progressPercent,100) + '%';
                 document.getElementById('progress-earned').textContent = `€${totalEarned.toFixed(2)}`;
-                document.getElementById('progress-goal').textContent = `€${objectif}`;
+                document.getElementById('progress-goal').textContent = `€${objectifForPeriod}`;
                 document.getElementById('kpi-earned-vs-goal').textContent = `${Math.round(progressPercent)}% objectif`;
             }catch(e){ console.warn(e); }
         })();
