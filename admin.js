@@ -20,28 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // L'utilisateur est un admin, on charge les données
                 loadAndRenderDrivers();
                 // show backfill button for admins
-                try{
-                    const backfillBtn = document.getElementById('backfill-btn');
-                    const backfillStatus = document.getElementById('backfill-status');
-                    if(backfillBtn){
-                        backfillBtn.style.display = 'inline-block';
-                        backfillBtn.addEventListener('click', async () => {
-                            if(!confirm('Lancer le backfill des timestamps pour toutes les courses ? Cette opération mettra à jour les documents existants. Continuer ?')) return;
-                            backfillBtn.disabled = true;
-                            backfillStatus.style.display = 'block';
-                            backfillStatus.textContent = 'Démarrage du backfill...\n';
-                            try{
-                                const res = await runBackfill(db, (msg)=>{ backfillStatus.textContent += msg + '\n'; backfillStatus.scrollTop = backfillStatus.scrollHeight; });
-                                backfillStatus.textContent += `Backfill terminé. Mis à jour: ${res.updated} / ${res.total}`;
-                            }catch(e){
-                                console.error('Backfill failed', e);
-                                backfillStatus.textContent += 'Erreur durant le backfill: ' + (e && e.message ? e.message : e) + '\n';
-                            } finally {
-                                backfillBtn.disabled = false;
-                            }
-                        });
-                    }
-                }catch(e){ console.warn('backfill UI init failed', e); }
+                    // admin UI: backfill removed; admins can view drivers and their metrics below
             } else {
                 // Pas un admin, on le redirige
                 console.warn("Accès non autorisé: l'utilisateur n'est pas un administrateur.");
@@ -122,6 +101,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${actionsHtml}
             `;
             list.appendChild(item);
+            // add metrics placeholder and fetch metrics for approved drivers
+            if(type === 'approved'){
+                const metricsEl = document.createElement('div');
+                metricsEl.className = 'driver-metrics';
+                metricsEl.id = `metrics-${driver.id}`;
+                metricsEl.textContent = 'Chargement des métriques...';
+                item.appendChild(metricsEl);
+                fetchAndRenderDriverMetrics(driver.id, metricsEl);
+            }
         });
 
         container.appendChild(list);
@@ -170,43 +158,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Backfill helper: updates missing timestamp_depart / timestamp_arrivee
-    async function runBackfill(db, onLog){
-        const snapshot = await db.collection('courses').get();
-        const total = snapshot.size;
-        let updated = 0;
-        onLog && onLog(`Courses total: ${total}`);
-        for(const doc of snapshot.docs){
-            const data = doc.data();
-            if(data.timestamp_depart) continue;
-            let baseDate = null;
-            try{
-                // doc.createTime may not be available in client SDK; fallback to updateTime or now
-                baseDate = (doc.createTime && typeof doc.createTime.toDate === 'function') ? doc.createTime.toDate() : ((doc.updateTime && typeof doc.updateTime.toDate === 'function') ? doc.updateTime.toDate() : new Date());
-            }catch(e){ baseDate = new Date(); }
-            let heureStr = data.heure_depart_course;
-            let dateDepart = new Date(baseDate);
-            if(heureStr && typeof heureStr === 'string'){
-                if(/\d{4}-\d{2}-\d{2}T/.test(heureStr)){
-                    try{ dateDepart = new Date(heureStr); }catch(e){}
-                } else if(/^\d{2}:\d{2}/.test(heureStr)){
-                    const p = heureStr.split(':'); dateDepart.setHours(parseInt(p[0],10)); dateDepart.setMinutes(parseInt(p[1],10)); dateDepart.setSeconds(0); dateDepart.setMilliseconds(0);
-                }
-            }
-            let dateArrivee = null;
-            if(data.heure_arrivee_course && typeof data.heure_arrivee_course === 'string'){
-                if(/\d{4}-\d{2}-\d{2}T/.test(data.heure_arrivee_course)){
-                    try{ dateArrivee = new Date(data.heure_arrivee_course);}catch(e){}
-                } else if(/^\d{2}:\d{2}/.test(data.heure_arrivee_course)){
-                    const p = data.heure_arrivee_course.split(':'); dateArrivee = new Date(dateDepart); dateArrivee.setHours(parseInt(p[0],10)); dateArrivee.setMinutes(parseInt(p[1],10));
-                }
-            }
-            const updates = {};
-            try{ updates.timestamp_depart = firebase.firestore.Timestamp.fromDate(dateDepart); }catch(e){}
-            if(dateArrivee) try{ updates.timestamp_arrivee = firebase.firestore.Timestamp.fromDate(dateArrivee); }catch(e){}
-            if(Object.keys(updates).length){
-                try{ await doc.ref.update(updates); updated++; onLog && onLog(`Updated ${doc.id}`); }catch(e){ onLog && onLog(`Failed ${doc.id}: ${e.message || e}`); }
-            }
-        }
-        return { total, updated };
+    // fetch metrics for a driver (last 30 days)
+    async function fetchAndRenderDriverMetrics(driverId, containerEl){
+        try{
+            const since = new Date(); since.setDate(since.getDate() - 30);
+            const snap = await db.collection('courses').where('chauffeur_id','==', driverId).where('timestamp_depart','>=', firebase.firestore.Timestamp.fromDate(since)).get();
+            let totalEarned = 0, totalDistance = 0, totalDuration = 0, count = 0;
+            snap.forEach(d => { const c = d.data(); totalEarned += (c.prix||0); totalDistance += (c.distance||0); totalDuration += (c.duree||0); count++; });
+            containerEl.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">
+                <div><strong>${Math.round(totalEarned)} €</strong><div class="muted">30j revenu</div></div>
+                <div><strong>${(Math.round(totalDistance*10)/10).toFixed(1)} km</strong><div class="muted">30j distance</div></div>
+                <div><strong>${count}</strong><div class="muted">30j courses</div></div>
+            </div>`;
+        }catch(e){ console.error('fetchAndRenderDriverMetrics failed', e); containerEl.textContent = 'Erreur chargement métriques'; }
     }
 });
