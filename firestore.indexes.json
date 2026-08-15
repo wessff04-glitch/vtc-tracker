@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionId": "courses",
+      "fields": [
+        { "fieldPath": "chauffeur_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp_depart", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
