@@ -258,6 +258,23 @@ function attachStatsListener(period = 'day'){
                 document.getElementById('progress-earned').textContent = `€${totalEarned.toFixed(2)}`;
                 document.getElementById('progress-goal').textContent = `€${objectifForPeriod}`;
                 document.getElementById('kpi-earned-vs-goal').textContent = `${Math.round(progressPercent)}% objectif`;
+
+                // Also update session progress (always show daily progress)
+                try{
+                    const sessionFillEl = document.getElementById('session-progress-fill');
+                    const sessionTextEl = document.getElementById('session-progress-text');
+                    if(sessionFillEl && sessionTextEl){
+                        // compute today's earnings
+                        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const todaySnap = await db.collection('courses').where('chauffeur_id','==',user.uid).where('timestamp_depart','>=', firebase.firestore.Timestamp.fromDate(startOfDay)).get();
+                        let todayEarned = 0;
+                        todaySnap.forEach(d => { const c = d.data(); todayEarned += (c.prix||0); });
+                        const dailyObjective = objectifJournalier || 0;
+                        const dailyPercent = dailyObjective ? (todayEarned / dailyObjective) * 100 : 0;
+                        sessionFillEl.style.width = Math.min(dailyPercent,100) + '%';
+                        sessionTextEl.textContent = `€${todayEarned.toFixed(2)} / €${dailyObjective} (${Math.round(dailyPercent)}%)`;
+                    }
+                }catch(eSess){ console.warn('Failed updating session progress', eSess); }
             }catch(e){ console.warn(e); }
         })();
 
