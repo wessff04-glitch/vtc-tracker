@@ -15,15 +15,21 @@ document.addEventListener('DOMContentLoaded', () => {
     auth.onAuthStateChanged(async user => {
         if (user) {
             // Vérifier si l'utilisateur est un admin
-            const userDoc = await db.collection('chauffeurs').doc(user.uid).get();
-            if (userDoc.exists && userDoc.data().role === 'admin') {
-                // L'utilisateur est un admin, on charge les données
-                loadAndRenderDrivers();
-                // show backfill button for admins
-                    // admin UI: backfill removed; admins can view drivers and their metrics below
-            } else {
-                // Pas un admin, on le redirige
-                console.warn("Accès non autorisé: l'utilisateur n'est pas un administrateur.");
+            try{
+                const userDoc = await db.collection('chauffeurs').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().role === 'admin') {
+                    // L'utilisateur est un admin, on charge les données
+                    loadAndRenderDrivers();
+                } else {
+                    // Pas un admin, on le redirige
+                    console.warn("Accès non autorisé: l'utilisateur n'est pas un administrateur.");
+                    alert('Accès réservé aux administrateurs.');
+                    window.location.href = 'index.html';
+                }
+            }catch(err){
+                console.error('Erreur lors de la récupération du document utilisateur (permissions?)', err);
+                alert('Impossible de vérifier les permissions. Vérifiez les règles Firestore et que votre compte a les droits admin.');
+                if (unsubscribe) unsubscribe();
                 window.location.href = 'index.html';
             }
         } else {
@@ -95,6 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>`;
             }
 
+            // add view courses button for approved drivers
+            if(type === 'approved'){
+                actionsHtml += ` <button data-action="view-courses" class="btn-view-courses" style="margin-left:8px">Voir courses</button>`;
+            }
+
             item.innerHTML = `
                 <strong>${driver.nom}</strong>
                 <span class="info">${driver.email}</span>
@@ -151,11 +162,92 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+            else if(action === 'view-courses'){
+                // open modal with driver's courses
+                const driverItem = target.closest('.driver-item');
+                if(!driverItem) return;
+                const driverId = driverItem.dataset.id;
+                openDriverCoursesModal(driverId);
+            }
         } catch (error) {
             console.error(`Erreur lors de l'action "${action}" sur le chauffeur ${driverId}:`, error);
             alert("Une erreur est survenue. Veuillez réessayer.");
         }
     });
+
+    // Modal: fetch and display courses for a driver with simple filters
+    async function openDriverCoursesModal(driverId){
+        const modal = document.createElement('div'); modal.className = 'route-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Courses du chauffeur</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div style="padding:12px;display:flex;gap:8px;align-items:center">
+                    <label>Filtre:</label>
+                    <select id="admin-course-filter">
+                        <option value="today">Aujourd'hui</option>
+                        <option value="7">7 jours</option>
+                        <option value="30">30 jours</option>
+                        <option value="all">Tous</option>
+                    </select>
+                    <button id="admin-refresh-courses" class="btn">Rafraîchir</button>
+                </div>
+                <div id="admin-courses-list" style="padding:12px;max-height:60vh;overflow:auto"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+        const listEl = modal.querySelector('#admin-courses-list');
+        const refreshBtn = modal.querySelector('#admin-refresh-courses');
+        const filterEl = modal.querySelector('#admin-course-filter');
+
+        async function loadCoursesForDriver(){
+            listEl.innerHTML = 'Chargement...';
+            try{
+                const f = filterEl.value;
+                let query = db.collection('courses').where('chauffeur_id','==', driverId).orderBy('timestamp_depart','desc');
+                if(f === 'today'){
+                    const now = new Date(); const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    query = db.collection('courses').where('chauffeur_id','==', driverId).where('timestamp_depart','>=', firebase.firestore.Timestamp.fromDate(start)).orderBy('timestamp_depart','desc');
+                } else if(f === '7' || f === '30'){
+                    const days = parseInt(f,10);
+                    const since = new Date(); since.setDate(since.getDate() - days);
+                    query = db.collection('courses').where('chauffeur_id','==', driverId).where('timestamp_depart','>=', firebase.firestore.Timestamp.fromDate(since)).orderBy('timestamp_depart','desc');
+                } else {
+                    query = db.collection('courses').where('chauffeur_id','==', driverId).orderBy('timestamp_depart','desc').limit(500);
+                }
+
+                // Try snapshot; if index error, fallback to GET without timestamp filter
+                try{
+                    const snap = await query.get();
+                    if(snap.empty){ listEl.innerHTML = '<p>Aucune course trouvée.</p>'; return; }
+                    renderAdminCourses(snap.docs, listEl);
+                }catch(err){
+                    console.warn('admin driver courses query failed, fallback GET', err);
+                    const snap2 = await db.collection('courses').where('chauffeur_id','==', driverId).limit(500).get();
+                    if(snap2.empty){ listEl.innerHTML = '<p>Aucune course trouvée.</p>'; return; }
+                    renderAdminCourses(snap2.docs, listEl);
+                }
+            }catch(e){ console.error('Failed loading driver courses', e); listEl.innerHTML = '<p>Erreur de chargement.</p>'; }
+        }
+
+        refreshBtn.addEventListener('click', loadCoursesForDriver);
+        loadCoursesForDriver();
+    }
+
+    function renderAdminCourses(docs, container){
+        container.innerHTML = '';
+        docs.forEach(doc => {
+            const c = doc.data();
+            const row = document.createElement('div');
+            row.style.padding = '8px'; row.style.borderBottom = '1px solid #eee';
+            const time = c.timestamp_depart && c.timestamp_depart.toDate ? c.timestamp_depart.toDate().toISOString() : (c.heure_depart_course || '—');
+            row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${time}</strong><div class="muted">${(c.distance||0).toFixed(1)} km • ${c.duree||0} min</div></div><div style="font-weight:700">€${(c.prix||0).toFixed(2)}</div></div>`;
+            container.appendChild(row);
+        });
+    }
 
     // Backfill helper: updates missing timestamp_depart / timestamp_arrivee
     // fetch metrics for a driver (last 30 days)
