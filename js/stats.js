@@ -191,6 +191,19 @@ function ecouterStats(uid, period = 'day'){
                 try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
                 const perHour = totalDuree ? (totalEarned / totalDuree) * 60 : 0;
                 try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
+                // update progress / objective using chauffeur doc if possible
+                try{
+                    const chauffeurDoc = await db.collection('chauffeurs').doc(uid).get();
+                    let objectifJournalier = (chauffeurDoc.exists && chauffeurDoc.data().objectif_journalier) ? chauffeurDoc.data().objectif_journalier : 0;
+                    let daysInPeriod = 1;
+                    if(period === 'day') daysInPeriod = 1;
+                    else if(period === 'week') daysInPeriod = 7;
+                    else if(period === 'month') daysInPeriod = new Date((new Date()).getFullYear(), (new Date()).getMonth()+1, 0).getDate();
+                    const objectifForPeriod = Math.round(objectifJournalier * daysInPeriod);
+                    const percent = objectifForPeriod ? Math.min((totalEarned / objectifForPeriod) * 100, 100) : 0;
+                    try{ document.getElementById('daily-progress-bar').style.width = percent + '%'; }catch(e){}
+                    try{ document.getElementById('daily-progress-text').textContent = `${Math.round(totalEarned)} € / ${objectifForPeriod} €`; }catch(e){}
+                }catch(eObj){ console.warn('Failed to update daily objective in fallback', eObj); }
             }
         }catch(fbErr){ console.error('Daily stats fallback failed', fbErr); }
     });
@@ -215,6 +228,8 @@ function attachCoursesListener(filter = 'today'){
         const coursesList = document.getElementById('courses-list');
         if(!coursesList) return;
         coursesList.innerHTML = '';
+        // update my rides button count if present
+        try{ const myRidesBtn = document.getElementById('my-rides-btn'); if(myRidesBtn) myRidesBtn.textContent = `Mes courses (${snapshot.size})`; }catch(e){}
         if(snapshot.empty){
             // Fallback: some older documents may lack `timestamp_depart` — fetch recent courses without timestamp filter
             console.warn('No courses found with timestamp filter, using fallback query to show recent courses.');
@@ -224,6 +239,7 @@ function attachCoursesListener(filter = 'today'){
                     return;
                 }
                 fallbackSnap.forEach(doc => renderCourseCard(doc, coursesList));
+                try{ const myRidesBtn = document.getElementById('my-rides-btn'); if(myRidesBtn) myRidesBtn.textContent = `Mes courses (${fallbackSnap.size})`; }catch(e){}
                 // show hint to admin
                 const hint = document.createElement('div'); hint.className='muted'; hint.style.marginTop='8px'; hint.textContent = 'Remarque: certaines courses anciennes n\'ont pas de timestamps Firestore. Exécutez le backfill depuis l\'espace admin pour restaurer le filtrage par période.';
                 coursesList.appendChild(hint);
