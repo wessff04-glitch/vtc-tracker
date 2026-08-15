@@ -117,7 +117,13 @@ function ecouterStats(uid, period = 'day'){
                             // per hour using live elapsed
                             const minutesElapsed = Math.max(1, Math.floor(diffMs/60000));
                             const perHourLive = (totalEarned / minutesElapsed) * 60;
-                            try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHourLive)} €/h`; }catch(e){}
+                            try{
+                                if(minutesElapsed < 60){
+                                    document.getElementById('daily-per-hour').textContent = `${Math.round(totalEarned)} €`;
+                                } else {
+                                    document.getElementById('daily-per-hour').textContent = `${Math.round(perHourLive)} €/h`;
+                                }
+                            }catch(e){}
                         };
                         updateLive();
                         dailyTimerId = setInterval(updateLive, 1000);
@@ -127,7 +133,13 @@ function ecouterStats(uid, period = 'day'){
                         const hh = Math.floor(workMinutes/60); const mm = workMinutes%60;
                         try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
                         const perHour = workMinutes ? (totalEarned / workMinutes) * 60 : 0;
-                        try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
+                        try{
+                            if(workMinutes < 60){
+                                document.getElementById('daily-per-hour').textContent = `${Math.round(totalEarned)} €`;
+                            } else {
+                                document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`;
+                            }
+                        }catch(e){}
                     }
                 } else {
                     try{ document.getElementById('daily-live-badge').style.display = 'none'; }catch(e){}
@@ -142,7 +154,13 @@ function ecouterStats(uid, period = 'day'){
             const hh = Math.floor(workMinutes/60); const mm = workMinutes%60;
             try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
             const perHour = workMinutes ? (totalEarned / workMinutes) * 60 : 0;
-            try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
+            try{
+                if(workMinutes < 60){
+                    document.getElementById('daily-per-hour').textContent = `${Math.round(totalEarned)} €`;
+                } else {
+                    document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`;
+                }
+            }catch(e){}
         }
 
         // objective (calendar-based)
