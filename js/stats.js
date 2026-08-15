@@ -19,12 +19,20 @@ function loadStatsData(period){
 function setupTabs(){
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            // detach previous listeners to avoid duplicates
+            detachCoursesListener();
+            detachStatsListener();
+            if(dailyStatsUnsub){ dailyStatsUnsub(); dailyStatsUnsub = null; }
+            if(dailyTimerId){ clearInterval(dailyTimerId); dailyTimerId = null; }
+
             const tabName = btn.dataset.tab;
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
             const sel = document.getElementById(tabName);
             if(sel) sel.classList.remove('hidden');
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+
+            // attach relevant listener for the tab
             if(tabName === 'tab-stats') loadStatsData('day');
             if(tabName === 'tab-courses') loadCourses(document.getElementById('courses-filter')?.value || 'today');
             if(tabName === 'tab-journee') {
@@ -34,6 +42,11 @@ function setupTabs(){
             }
         });
     });
+}
+
+function detachDailyStats(){
+    if(dailyStatsUnsub){ dailyStatsUnsub(); dailyStatsUnsub = null; }
+    if(dailyTimerId){ clearInterval(dailyTimerId); dailyTimerId = null; }
 }
 
 function detachCoursesListener(){
@@ -468,16 +481,16 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.auth().onAuthStateChanged(user => {
         if(user){
             console.log('stats: auth user', user.uid);
-            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
-            if(activeTab === 'tab-courses') attachCoursesListener(document.getElementById('courses-filter')?.value || 'today');
-            if(activeTab === 'tab-stats') attachStatsListener(document.querySelector('.period-btn.active')?.dataset.period || 'day');
-            if(activeTab === 'tab-journee') ecouterStats(user.uid, document.querySelector('.daily-period-btn.active')?.dataset.period || 'day');
+            // Attach listeners proactively to ensure the UI shows data immediately
+            try{ attachCoursesListener(document.getElementById('courses-filter')?.value || 'today'); }catch(e){}
+            try{ attachStatsListener(document.querySelector('.period-btn.active')?.dataset.period || 'day'); }catch(e){}
+            try{ ecouterStats(user.uid, document.querySelector('.daily-period-btn.active')?.dataset.period || 'day'); }catch(e){}
             // start periodic refresh to keep UI in sync
             startPeriodicRefresh();
         } else {
             detachCoursesListener();
             detachStatsListener();
-            if(dailyStatsUnsub){ dailyStatsUnsub(); dailyStatsUnsub = null; }
+            detachDailyStats();
             stopPeriodicRefresh();
         }
     });
