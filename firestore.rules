@@ -4,7 +4,14 @@ service cloud.firestore {
 
     // Les chauffeurs peuvent lire leurs propres données
     match /chauffeurs/{userId} {
-      allow read, update: if request.auth.uid == userId;
+      // Autoriser la lecture/maj au propriétaire, et permettre aux admins
+      // (utilisateurs dont le doc chauffeurs/{auth.uid}.role == 'admin')
+      // de lire les documents des chauffeurs.
+      allow read, update: if request.auth != null && (
+        request.auth.uid == userId ||
+        // Le get() vérifie le document du demandeur pour son rôle
+        (get(/databases/$(database)/documents/chauffeurs/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     // Pour l'instant, on bloque tout le reste en attendant les règles détaillées
