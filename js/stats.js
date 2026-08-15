@@ -3,6 +3,8 @@ let statsChart = null;
 let coursesUnsub = null;
 let statsUnsub = null;
 let db = null;
+let dailyStatsUnsub = null;
+let dailyTimerId = null;
 
 // Helper functions used by tab handlers (were missing and caused ReferenceError)
 function loadCourses(filter){
@@ -24,12 +26,110 @@ function setupTabs(){
             btn.classList.add('active');
             if(tabName === 'tab-stats') loadStatsData('day');
             if(tabName === 'tab-courses') loadCourses(document.getElementById('courses-filter')?.value || 'today');
+            if(tabName === 'tab-journee') {
+                const uid = firebase.auth().currentUser && firebase.auth().currentUser.uid;
+                const period = document.querySelector('.daily-period-btn.active')?.dataset.period || 'day';
+                if(uid) ecouterStats(uid, period);
+            }
         });
     });
 }
 
 function detachCoursesListener(){
     if(coursesUnsub){ coursesUnsub(); coursesUnsub = null; }
+}
+
+function ecouterStats(uid, period = 'day'){
+    // detach previous
+    if(dailyStatsUnsub){ dailyStatsUnsub(); dailyStatsUnsub = null; }
+    if(dailyTimerId){ clearInterval(dailyTimerId); dailyTimerId = null; }
+    if(!uid) return;
+    const now = new Date();
+    let startDate = new Date();
+    if(period === 'day') startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    else if(period === 'week') startDate = new Date(now.getTime() - 7*24*60*60*1000);
+    else if(period === 'month') startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
+    const query = db.collection('courses').where('chauffeur_id','==',uid).where('timestamp_depart','>=', startTimestamp);
+
+    dailyStatsUnsub = query.onSnapshot(async snapshot => {
+        // compute totals
+        let totalEarned = 0; let totalDistance = 0; let totalDuree = 0; let coursesCount = 0;
+        snapshot.forEach(doc => { const c = doc.data(); totalEarned += (c.prix||0); totalDistance += (c.distance||0); totalDuree += (c.duree||0); coursesCount++; });
+
+        // update UI
+        try{ document.getElementById('daily-earned').textContent = `${Math.round(totalEarned)} €`; }catch(e){}
+        try{ document.getElementById('daily-distance').textContent = `${(Math.round(totalDistance*10)/10).toFixed(1)} km`; }catch(e){}
+        try{ document.getElementById('daily-courses-count').textContent = coursesCount; }catch(e){}
+
+        // time worked and per-hour
+        let workMinutes = totalDuree; // default from sum of course durations
+
+        if(period === 'day'){
+            // prefer live session duration if session active
+            try{
+                const sessionSnap = await db.collection('sessions').where('chauffeur_id','==',uid).where('heure_fin','==',null).limit(1).get();
+                if(!sessionSnap.empty){
+                    const s = sessionSnap.docs[0].data();
+                    // build session start datetime from session.date (YYYY-MM-DD) and heure_debut (HH:MM)
+                    let startDt = null;
+                    if(s.date && s.heure_debut){
+                        const iso = `${s.date}T${s.heure_debut}:00`;
+                        startDt = new Date(iso);
+                    }
+                    if(startDt && !isNaN(startDt.getTime())){
+                        const updateLive = () => {
+                            const now2 = new Date();
+                            const diffMs = now2 - startDt;
+                            const hh = Math.floor(diffMs / (1000*60*60));
+                            const mm = Math.floor((diffMs % (1000*60*60)) / (1000*60));
+                            try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
+                            // per hour using live elapsed
+                            const minutesElapsed = Math.max(1, Math.floor(diffMs/60000));
+                            const perHourLive = (totalEarned / minutesElapsed) * 60;
+                            try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHourLive)} €/h`; }catch(e){}
+                        };
+                        updateLive();
+                        dailyTimerId = setInterval(updateLive, 1000);
+                    } else {
+                        // fallback to sum of durations
+                        const hh = Math.floor(workMinutes/60); const mm = workMinutes%60;
+                        try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
+                        const perHour = workMinutes ? (totalEarned / workMinutes) * 60 : 0;
+                        try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
+                    }
+                } else {
+                    const hh = Math.floor(workMinutes/60); const mm = workMinutes%60;
+                    try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
+                    const perHour = workMinutes ? (totalEarned / workMinutes) * 60 : 0;
+                    try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
+                }
+            }catch(e){ console.warn('ecouterStats session check failed', e); }
+        } else {
+            // week/month: show total duration sum
+            const hh = Math.floor(workMinutes/60); const mm = workMinutes%60;
+            try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
+            const perHour = workMinutes ? (totalEarned / workMinutes) * 60 : 0;
+            try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
+        }
+
+        // objective
+        try{
+            const chauffeurDoc = await db.collection('chauffeurs').doc(uid).get();
+            let objectifJournalier = (chauffeurDoc.exists && chauffeurDoc.data().objectif_journalier) ? chauffeurDoc.data().objectif_journalier : 0;
+            let objectifForPeriod = 0;
+            if(period === 'day') objectifForPeriod = objectifJournalier;
+            else if(period === 'week') objectifForPeriod = Math.round(objectifJournalier * 7);
+            else if(period === 'month') objectifForPeriod = Math.round(objectifJournalier * 30);
+            const percent = objectifForPeriod ? Math.min((totalEarned / objectifForPeriod) * 100, 100) : 0;
+            try{ document.getElementById('daily-progress-bar').style.width = percent + '%'; }catch(e){}
+            try{ document.getElementById('daily-progress-text').textContent = `${Math.round(totalEarned)} € / ${objectifForPeriod} €`; }catch(e){}
+        }catch(e){ console.warn('ecouterStats objectif fetch failed', e); }
+    }, err => {
+        console.error('Daily stats snapshot error', err);
+        // fallback handled elsewhere
+    });
 }
 
 function attachCoursesListener(filter = 'today'){
@@ -323,6 +423,14 @@ document.addEventListener('DOMContentLoaded', () => {
         attachStatsListener(btn.dataset.period || 'day');
     }));
 
+    // daily/overview period selector in Jour tab
+    document.querySelectorAll('.daily-period-btn').forEach(btn => btn.addEventListener('click', () => {
+        document.querySelectorAll('.daily-period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const uid = firebase.auth().currentUser && firebase.auth().currentUser.uid;
+        if(uid) ecouterStats(uid, btn.dataset.period || 'day');
+    }));
+
     // React to auth changes and attach/detach listeners
     firebase.auth().onAuthStateChanged(user => {
         if(user){
@@ -330,9 +438,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
             if(activeTab === 'tab-courses') attachCoursesListener(document.getElementById('courses-filter')?.value || 'today');
             if(activeTab === 'tab-stats') attachStatsListener(document.querySelector('.period-btn.active')?.dataset.period || 'day');
+            if(activeTab === 'tab-journee') ecouterStats(user.uid, document.querySelector('.daily-period-btn.active')?.dataset.period || 'day');
         } else {
             detachCoursesListener();
             detachStatsListener();
+            if(dailyStatsUnsub){ dailyStatsUnsub(); dailyStatsUnsub = null; }
         }
     });
 });

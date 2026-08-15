@@ -100,4 +100,15 @@
 .detail-row{display:flex;justify-content:space-between;padding:8px 0;font-weight:500}
 .detail-row span:last-child{color:#00A86B;font-weight:700}
 
+/* Daily stats bar styles */
+.daily-stats-bar { background: white; border-radius: 12px; }
+.daily-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+.daily-stat { display:flex; flex-direction:column; align-items:center; text-align:center; background:#F8F9FB; border-radius:10px; padding:10px 6px; }
+.daily-stat-icon { font-size:1.25rem; margin-bottom:4px; }
+.daily-stat-value { font-size:1.05rem; font-weight:700; color:#1A1A1A; }
+.daily-stat-label { font-size:0.7rem; color:#757575; font-weight:600; text-transform:uppercase; margin-top:4px; }
+.period-selector { display:flex; gap:8px; padding:0 0 8px 0; }
+.period-btn { flex:1; padding:8px; border:1px solid #E8E8E8; background:white; border-radius:10px; font-weight:600; font-size:0.9rem; color:#757575; cursor:pointer; }
+.period-btn.active { background:#00A86B; color:white; border-color:#00A86B; }
+
 

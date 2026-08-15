@@ -45,6 +45,54 @@
         </div>
 
         <div id="tab-journee" class="tab-content">
+        <!-- Barre de statistiques quotidienne (Jour / Semaine / Mois) -->
+        <div class="daily-stats-container card mb-16" style="display:block;">
+            <div class="period-selector" style="padding:12px 16px 0 16px;">
+                <button class="period-btn daily-period-btn active" data-period="day">Jour</button>
+                <button class="period-btn daily-period-btn" data-period="week">Semaine</button>
+                <button class="period-btn daily-period-btn" data-period="month">Mois</button>
+            </div>
+
+            <div class="daily-stats-bar" style="padding:12px 16px 16px 16px;">
+                <div class="daily-stats-grid">
+                    <div class="daily-stat">
+                        <span class="daily-stat-icon">💰</span>
+                        <span class="daily-stat-value" id="daily-earned">0 €</span>
+                        <span class="daily-stat-label">Gagné</span>
+                    </div>
+                    <div class="daily-stat">
+                        <span class="daily-stat-icon">📍</span>
+                        <span class="daily-stat-value" id="daily-distance">0 km</span>
+                        <span class="daily-stat-label">Distance</span>
+                    </div>
+                    <div class="daily-stat">
+                        <span class="daily-stat-icon">⏱️</span>
+                        <span class="daily-stat-value" id="daily-worktime">0h 00</span>
+                        <span class="daily-stat-label">Temps travaillé</span>
+                    </div>
+                    <div class="daily-stat">
+                        <span class="daily-stat-icon">⚡</span>
+                        <span class="daily-stat-value" id="daily-per-hour">0 €/h</span>
+                        <span class="daily-stat-label">Par heure</span>
+                    </div>
+                    <div class="daily-stat">
+                        <span class="daily-stat-icon">🚗</span>
+                        <span class="daily-stat-value" id="daily-courses-count">0</span>
+                        <span class="daily-stat-label">Courses</span>
+                    </div>
+                </div>
+
+                <div class="daily-goal-progress">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="daily-progress-bar"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="daily-progress-text">0 € / 0 €</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Etat: En attente -->
         <section id="waiting-state" class="card mb-16">
             <div class="driver-hero">
