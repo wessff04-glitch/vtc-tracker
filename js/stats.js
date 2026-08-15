@@ -161,9 +161,38 @@ function ecouterStats(uid, period = 'day'){
             try{ document.getElementById('daily-progress-bar').style.width = percent + '%'; }catch(e){}
             try{ document.getElementById('daily-progress-text').textContent = `${Math.round(totalEarned)} € / ${objectifForPeriod} €`; }catch(e){}
         }catch(e){ console.warn('ecouterStats objectif fetch failed', e); }
-    }, err => {
+    }, async err => {
         console.error('Daily stats snapshot error', err);
-        // fallback handled elsewhere
+        try{
+            const msg = (err && (err.message || '')).toLowerCase();
+            if(msg.includes('requires an index') || msg.includes('index')){
+                console.warn('Daily stats: index error — using fallback GET for recent courses');
+                const fallbackSnap = await db.collection('courses').where('chauffeur_id','==',uid).limit(200).get();
+                let totalEarned = 0; let totalDistance = 0; let totalDuree = 0; let coursesCount = 0;
+                fallbackSnap.forEach(doc => {
+                    const c = doc.data();
+                    // try to include only docs in period when possible
+                    let include = true;
+                    try{
+                        if(c.timestamp_depart && c.timestamp_depart.toDate){
+                            include = c.timestamp_depart.toDate() >= startDate;
+                        } else if(c.heure_depart_course){
+                            const d = new Date(c.heure_depart_course);
+                            if(!isNaN(d.getTime())) include = d >= startDate;
+                        }
+                    }catch(e){}
+                    if(include){ totalEarned += (c.prix||0); totalDistance += (c.distance||0); totalDuree += (c.duree||0); coursesCount++; }
+                });
+
+                try{ document.getElementById('daily-earned').textContent = `${Math.round(totalEarned)} €`; }catch(e){}
+                try{ document.getElementById('daily-distance').textContent = `${(Math.round(totalDistance*10)/10).toFixed(1)} km`; }catch(e){}
+                try{ document.getElementById('daily-courses-count').textContent = coursesCount; }catch(e){}
+                const hh = Math.floor(totalDuree/60); const mm = totalDuree%60;
+                try{ document.getElementById('daily-worktime').textContent = `${hh}h ${String(mm).padStart(2,'0')}`; }catch(e){}
+                const perHour = totalDuree ? (totalEarned / totalDuree) * 60 : 0;
+                try{ document.getElementById('daily-per-hour').textContent = `${Math.round(perHour)} €/h`; }catch(e){}
+            }
+        }catch(fbErr){ console.error('Daily stats fallback failed', fbErr); }
     });
 }
 
@@ -414,7 +443,46 @@ function attachStatsListener(period = 'day'){
         })();
 
         drawRevenueChart(coursesArray, period);
-    }, err => console.error('Stats snapshot error', err));
+    }, async err => {
+        console.error('Stats snapshot error', err);
+        try{
+            const msg = (err && (err.message || '')).toLowerCase();
+            if(msg.includes('requires an index') || msg.includes('index')){
+                console.warn('Stats: index error — using fallback GET for recent courses');
+                const fallbackSnap = await db.collection('courses').where('chauffeur_id','==',user.uid).limit(500).get();
+                let totalEarned = 0; let totalDistance = 0; let totalTime = 0; const coursesArray = [];
+                fallbackSnap.forEach(doc => {
+                    const c = doc.data();
+                    // include only docs in period when possible
+                    let include = true;
+                    try{
+                        if(c.timestamp_depart && c.timestamp_depart.toDate){ include = c.timestamp_depart.toDate() >= startDate; }
+                        else if(c.heure_depart_course){ const d = new Date(c.heure_depart_course); if(!isNaN(d.getTime())) include = d >= startDate; }
+                    }catch(e){}
+                    if(include){ totalEarned += (c.prix||0); totalDistance += (c.distance||0); totalTime += (c.duree||0); coursesArray.push(c); }
+                });
+
+                const avgPrice = coursesArray.length ? totalEarned / coursesArray.length : 0;
+                const avgDistance = coursesArray.length ? totalDistance / coursesArray.length : 0;
+                const perHour = totalTime ? (totalEarned / totalTime) * 60 : 0;
+                const perKm = totalDistance ? totalEarned / totalDistance : 0;
+
+                try{ document.getElementById('kpi-earned').textContent = `€${totalEarned.toFixed(2)}`; }catch(e){}
+                try{ document.getElementById('kpi-courses').textContent = coursesArray.length; }catch(e){}
+                try{ document.getElementById('kpi-courses-avg').textContent = coursesArray.length ? `${avgPrice.toFixed(2)}€/course` : '—'; }catch(e){}
+                try{ document.getElementById('kpi-distance').textContent = `${totalDistance.toFixed(1)} km`; }catch(e){}
+                try{ document.getElementById('kpi-distance-avg').textContent = `${avgDistance.toFixed(1)} km/course`; }catch(e){}
+                const hours = Math.floor(totalTime / 60); const mins = Math.round(totalTime % 60);
+                try{ document.getElementById('metadata-time').textContent = `${hours}h ${mins}min`; }catch(e){}
+                try{ document.getElementById('metadata-avg-price').textContent = `€${avgPrice.toFixed(2)}`; }catch(e){}
+                try{ document.getElementById('metadata-per-hour').textContent = `€${perHour.toFixed(2)}`; }catch(e){}
+                try{ document.getElementById('metadata-per-km').textContent = `€${perKm.toFixed(2)}`; }catch(e){}
+
+                // draw chart and progress using the fallback data
+                drawRevenueChart(coursesArray, period);
+            }
+        }catch(fbErr){ console.error('Stats fallback failed', fbErr); }
+    });
 }
 
 function startPeriodicRefresh(){
